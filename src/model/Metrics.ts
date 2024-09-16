@@ -49,3 +49,13 @@ class BreakdownData {
       this.breakdown = data.breakdown.map((item: any) => new BreakdownData(item));
     }
   }
+
+  export class TeamMetrics {
+    team_tag: string;
+    metrics: Metrics[];
+  
+    constructor(data: any) {
+      this.team_tag = data.team_tag;
+      this.metrics = data.metrics.map((item: any) => new Metrics(item));
+    }
+  }

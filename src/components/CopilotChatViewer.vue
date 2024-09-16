@@ -1,39 +1,61 @@
 <template>
-    <div class="tiles-container">      
-        <v-card elevation="4" color="white" variant="elevated" class="mx-auto my-3" style="width: 300px; height: 175px;">
+  <div>
+    <!-- Dashboard Container for Metrics -->
+    <v-container fluid class="dashboard-container">
+      <v-row justify="center" align="center">
+        <!-- Cumulative Number of Turns Card -->
+        <v-col cols="12" sm="6" md="3">
+          <v-card elevation="4" class="metric-card">
             <v-card-item>
-                <div class="tiles-text">
-                    <div class="spacing-25"></div>
-                    <div class="text-h6 mb-1">Cumulative Number of Turns</div>
-                    <div class="text-caption">Over the last 28 days</div>
-                    <p class="text-h4">{{ cumulativeNumberTurns }}</p>
-                </div>
+              <div class="card-content">
+                <div class="metric-title">Cumulative Number of Turns</div>
+                <div class="metric-subtitle">Over the last 28 days</div>
+                <p class="metric-value">{{ cumulativeNumberTurns }}</p>
+              </div>
             </v-card-item>
-        </v-card>
+          </v-card>
+        </v-col>
 
-        <v-card elevation="4" color="white" variant="elevated" class="mx-auto my-3" style="width: 300px; height: 175px;">
+        <!-- Cumulative Number of Acceptances Card -->
+        <v-col cols="12" sm="6" md="3">
+          <v-card elevation="4" class="metric-card">
             <v-card-item>
-                <div class="tiles-text">
-                    <div class="spacing-10"></div>
-                    <div class="text-h6 mb-1">Cumulative Number of Acceptances</div>
-                    <div class="text-caption">Over the last 28 days</div>
-                    <p class="text-h4">{{ cumulativeNumberAcceptances }}</p>
-                </div>
+              <div class="card-content">
+                <div class="metric-title">Cumulative Number of Acceptances</div>
+                <div class="metric-subtitle">Over the last 28 days</div>
+                <p class="metric-value">{{ cumulativeNumberAcceptances }}</p>
+              </div>
             </v-card-item>
-        </v-card>
-    </div>
+          </v-card>
+        </v-col>
+      </v-row>
+    </v-container>
 
-    <v-main class="p-1" style="min-height: 300px;">
-        <v-container style="min-height: 300px;" class="px-4 elevation-2">
+    <!-- Charts Section -->
+    <v-container fluid class="charts-container">
+      <v-row>
+        <v-col cols="12">
+          <h3 class="text-center">Total Acceptances | Total Turns Count</h3>
+          <v-card class="chart-card">
+            <v-card-item>
+              <Line :data="totalNumberAcceptancesAndTurnsChartData" :options="chartOptions" />
+            </v-card-item>
+          </v-card>
+        </v-col>
+      </v-row>
 
-            <h2>Total Acceptances | Total Turns Count</h2>
-            <Line :data="totalNumberAcceptancesAndTurnsChartData" :options="chartOptions" />
-
-            <h2>Total Active Copilot Chat Users</h2>
-            <Bar :data="totalActiveCopilotChatUsersChartData" :options="totalActiveChatUsersChartOptions" />
-
-        </v-container>
-    </v-main>
+      <v-row>
+        <v-col cols="12">
+          <h3 class="text-center">Total Active Copilot Chat Users</h3>
+          <v-card class="chart-card">
+            <v-card-item>
+              <Bar :data="totalActiveCopilotChatUsersChartData" :options="totalActiveChatUsersChartOptions" />
+            </v-card-item>
+          </v-card>
+        </v-col>
+      </v-row>
+    </v-container>
+  </div>
 </template>
   
 <script lang="ts">

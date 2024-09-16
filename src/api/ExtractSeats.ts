@@ -4,7 +4,7 @@ import { Seat } from "../model/Seat";
 import config from '../config';
 
 import organizationMockedResponse_seats from '../assets/organization_response_sample_seats.json';
-import enterpriseMockedResponse_seats from '../assets/enterprise_response_sample_seats.json';
+// import enterpriseMockedResponse_seats from '../assets/enterprise_response_sample_seats.json';
 
 export const getSeatsApi = async (): Promise<Seat[]> => {
   const perPage = 50;

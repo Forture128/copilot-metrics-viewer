@@ -1,5 +1,4 @@
 const PROPS = ["MOCKED_DATA", "SCOPE", "GITHUB_ORG", "GITHUB_ENT", "GITHUB_TEAM", "GITHUB_TOKEN"];
-
 const env: any = {};
 PROPS.forEach(prop => {
 	const propName = `VUE_APP_${prop}`;
@@ -52,7 +51,6 @@ const config: Config = {
 if (!config.mockedData && !config.github.token) {
 	throw new Error("VUE_APP_GITHUB_TOKEN environment variable must be set.");
 }
-
 export default config;
 
 interface Config {

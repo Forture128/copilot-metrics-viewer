@@ -1,23 +1,202 @@
 .tiles-container {
-    display: flex;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-  .tiles-text {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
+  display: flex;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.tiles-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
 
-  .error-message {
-    color: red;
-  }
+.error-message {
+  color: red;
+}
 
-  .spacing-10 {
-    margin-bottom: 10px;
-  }
+.spacing-10 {
+  margin-bottom: 10px;
+}
 
-  .spacing-25 {
-    margin-bottom: 25px;
-  }
+.spacing-25 {
+  margin-bottom: 25px;
+}
+.dashboard-container {
+  padding: 20px;
+  background-color: #f5f7fb;
+}
+
+.metric-card {
+  text-align: center;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.metric-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #5f6368;
+}
+
+.metric-subtitle {
+  font-size: 12px;
+  color: #b0b3b8;
+  margin-bottom: 10px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  margin-top: 5px;
+}
+
+/* Dashboard and Charts Layout */
+.dashboard-container {
+  margin-top: 20px;
+}
+
+.charts-container {
+  margin-top: 40px;
+  padding: 20px;
+}
+
+/* Style for the charts */
+.chart-card {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.tiles-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tiles-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.error-message {
+  color: red;
+}
+
+.spacing-10 {
+  margin-bottom: 10px;
+}
+
+.spacing-25 {
+  margin-bottom: 25px;
+}
+
+.title-text {
+  font-weight: bold;
+  color: black; /* Change title text color to black */
+}
+
+.subtitle-text {
+  color: #5f6368; /* Grey color for subtitle */
+}
+
+/* Aligning icon and text in the same line */
+.tab-content {
+  display: flex;
+  align-items: center; /* Ensures icon and text are aligned on the same line */
+}
+
+.tab-title {
+  font-size: 14px;
+  color: black; /* Change tab text color to black */
+  font-weight: 500;
+}
+.uppercase-text {
+  text-transform: uppercase; /* Convert text to uppercase */
+  font-weight: 500; /* Make it slightly bold */
+}
+
+/* Adjust active item style */
+.active-item {
+  background-color: #e0e0e0; /* Highlight for the active item */
+  color: black; /* Ensure active item text is black */
+}
+
+/* Sidebar overall background */
+.v-navigation-drawer {
+  height: 100vh; /* Full viewport height */
+  position: fixed; /* Fixes the sidebar in place */
+}
+/* Scrollable main content */
+.v-main {
+  overflow-y: auto; /* Allows scrolling in the main content */
+  height: 100vh;
+}
+
+/* Error message styling */
+.error-message {
+  color: red;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* List item padding adjustment */
+.v-list-item {
+  padding: 10px;
+}
+
+.v-list-item-icon {
+  margin-right: 10px; /* Add some space between the icon and the text */
+}
+/* Tiles Container */
+.tiles-container {
+  margin-bottom: 20px;
+}
+
+.tile-card {
+  height: 175px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Text in Tile Cards */
+.tiles-text {
+  text-align: center;
+}
+
+/* Chart Card Styling */
+.chart-card {
+  margin-bottom: 20px;
+  padding: 20px;
+}
+
+/* Chart Container for Pie Charts */
+.chart-container {
+  width: 100%;
+  height: 300px;
+}
+
+/* Table Container */
+.table-container {
+  padding-left: 100px;
+  padding-right: 100px;
+}
+
+/* Centered Headings */
+.text-center {
+  text-align: center;
+}

@@ -1,0 +1,90 @@
+[
+    {
+      "id": 1,
+      "node_id": "MDQ6VGVhbTE=",
+      "name": "Core Development",
+      "slug": "core-development",
+      "description": "The main development team responsible for critical updates.",
+      "privacy": "closed",
+      "notification_setting": "notifications_enabled",
+      "permission": "admin",
+      "permissions": {
+        "pull": true,
+        "triage": true,
+        "push": true,
+        "maintain": true,
+        "admin": true
+      },
+      "url": "https://api.github.com/organizations/1/team/1",
+      "html_url": "https://github.com/orgs/myorg/teams/core-development",
+      "members_url": "https://api.github.com/organizations/1/team/1/members{/member}",
+      "repositories_url": "https://api.github.com/organizations/1/team/1/repos",
+      "parent": null
+    },
+    {
+      "id": 2,
+      "node_id": "MDQ6VGVhbTI=",
+      "name": "QA Team",
+      "slug": "qa-team",
+      "description": "Responsible for ensuring code quality and testing.",
+      "privacy": "closed",
+      "notification_setting": "notifications_enabled",
+      "permission": "maintain",
+      "permissions": {
+        "pull": true,
+        "triage": true,
+        "push": false,
+        "maintain": true,
+        "admin": false
+      },
+      "url": "https://api.github.com/organizations/1/team/2",
+      "html_url": "https://github.com/orgs/myorg/teams/qa-team",
+      "members_url": "https://api.github.com/organizations/1/team/2/members{/member}",
+      "repositories_url": "https://api.github.com/organizations/1/team/2/repos",
+      "parent": null
+    },
+    {
+      "id": 3,
+      "node_id": "MDQ6VGVhbTQ=",
+      "name": "DevOps",
+      "slug": "devops",
+      "description": "Team in charge of operations and infrastructure.",
+      "privacy": "closed",
+      "notification_setting": "notifications_enabled",
+      "permission": "push",
+      "permissions": {
+        "pull": true,
+        "triage": true,
+        "push": true,
+        "maintain": false,
+        "admin": false
+      },
+      "url": "https://api.github.com/organizations/1/team/3",
+      "html_url": "https://github.com/orgs/myorg/teams/devops",
+      "members_url": "https://api.github.com/organizations/1/team/3/members{/member}",
+      "repositories_url": "https://api.github.com/organizations/1/team/3/repos",
+      "parent": null
+    },
+    {
+      "id": 4,
+      "node_id": "MDQ6VGVhbTQ=",
+      "name": "UI/UX Design",
+      "slug": "ui-ux-design",
+      "description": "Team focusing on front-end design and user experience.",
+      "privacy": "closed",
+      "notification_setting": "notifications_enabled",
+      "permission": "pull",
+      "permissions": {
+        "pull": true,
+        "triage": false,
+        "push": false,
+        "maintain": false,
+        "admin": false
+      },
+      "url": "https://api.github.com/organizations/1/team/4",
+      "html_url": "https://github.com/orgs/myorg/teams/ui-ux-design",
+      "members_url": "https://api.github.com/organizations/1/team/4/members{/member}",
+      "repositories_url": "https://api.github.com/organizations/1/team/4/repos",
+      "parent": null
+    }
+  ]
