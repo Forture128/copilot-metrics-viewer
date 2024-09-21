@@ -228,7 +228,7 @@ export default defineComponent({
           type: "category",
           ticks: {
             autoSkip: true,
-            maxTicksLimit: 10, // Adjust to control number of labels on x-axis
+            maxTicksLimit: 10,
           },
         },
       },
@@ -314,12 +314,12 @@ export default defineComponent({
       ],
     };
 
-    // cumulativeNumberLOCAccepted.value = 0;
-    // const cumulativeLOCAcceptedData = data.map((m: Metrics) => {
-    //   const total_lines_accepted = m.total_lines_accepted;
-    //   cumulativeNumberLOCAccepted.value += total_lines_accepted;
-    //   return total_lines_accepted;
-    // });
+    cumulativeNumberLOCAccepted.value = 0;
+    const cumulativeLOCAcceptedData = data.map((m: Metrics) => {
+      const total_lines_accepted = m.total_lines_accepted;
+      cumulativeNumberLOCAccepted.value += total_lines_accepted;
+      return total_lines_accepted;
+    });
 
     const acceptanceLinesRates = data.map((m: Metrics) => {
       const rate =
@@ -342,7 +342,7 @@ export default defineComponent({
         },
         {
           label: "Total Lines Accepted",
-          data: data.map((m: Metrics) => m.total_lines_accepted),
+          data: cumulativeLOCAcceptedData,
           backgroundColor: "rgba(153, 102, 255, 0.2)",
           borderColor: "rgba(153, 102, 255, 1)",
           type: "bar", // Bar chart for acceptances

@@ -128,7 +128,7 @@ export default defineComponent({
   },
   data() {
     return {
-      tabItems: ["languages", "team metrics", "editors", "copilot chat", "api response",],
+      tabItems: ["team metrics", "languages", "editors", "copilot chat", "api response",],
       tab: "",
     };
   },
