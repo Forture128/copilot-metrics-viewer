@@ -70,10 +70,10 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, ref } from "vue";
-import { getMetricsApi, getTeams } from "../api/GitHubApi";
+import { getMetricsApi, getTeamMembers, getTeams } from "../api/GitHubApi";
 import { getTeamMetricsApi } from "../api/GitHubApi";
 import { getSeatsApi } from "../api/ExtractSeats";
-import { Metrics, TeamMetrics } from "../model/Metrics";
+import { MembersMetrics, Metrics, TeamMetrics } from "../model/Metrics";
 import { Seat } from "../model/Seat";
 
 //Components
@@ -168,6 +168,8 @@ export default defineComponent({
     const seats = ref<Seat[]>([]);
 
     const teamList = ref<string[]>([]);
+    teamList.value = ["All Teams", "cloud_transfer_reviewers", "neo-ap", "rci-mfv"];
+    const membersMetrics = ref<MembersMetrics[]>([]);
     const teamMetrics = ref<TeamMetrics[]>([]);
     const teamMetricsReady = ref(false);
     // API Error Message
@@ -206,21 +208,25 @@ export default defineComponent({
 
     // Fetch teams for the dropdown
     // Add console.log to see the team list
-    getTeams()
-      .then((data) => {
-        console.log("Team List: ", data);
-        // convert Array[Team] to array name of teams
-        teamList.value = data.map((team) => team.slug);
-        // teamTagList.value = data.map((team) => team.slug);
-      })
-      .catch((error) => handleApiError(error, apiError));
+    // getTeams()
+    //   .then((data) => {
+    //     console.log("Team List: ", data);
+    //     // convert Array[Team] to array name of teams
+    //     teamList.value = data.map((team) => team.slug);
+    //     // teamTagList.value = data.map((team) => team.slug);
+    //   })
+    //   .catch((error) => handleApiError(error, apiError));
 
     // Fetch data for all teams once on mount
     onMounted(async () => {
       try {
-        const teams = await getTeams();
-        teamList.value = teams.map((team) => team.slug);
-        teamList.value.unshift("All Teams");
+        // const teams = await getTeams();
+        // cloud_transfer_reviewers | neo-ap | rci-mfv
+        // Create a list of team names for the dropdown
+        // team
+        // teamList.value = teams.map((team) => team.slug);
+        // teamList.value = ["All Teams", "cloud_transfer_reviewers", "neo-ap", "rci-mfv"];
+        // teamList.value.unshift("All Teams");
 
         // Add default "All Teams" entry with overall metrics
         const allTeamsData: TeamMetrics = {
@@ -233,10 +239,12 @@ export default defineComponent({
         // Loop through the teamList and fetch metrics for each team
         teamList.value.forEach(async (team) => {
           if (team !== "All Teams") {
-            const data = await getTeamMetricsApi(team);
+            const metrics = await getTeamMetricsApi(team);
+            // const members = await getTeamMembers(team);
             const teamData: TeamMetrics = {
               team_tag: team,
-              metrics: data,
+              metrics: metrics,
+              // members: members,
             };
             teamMetrics.value.push(teamData);
           }

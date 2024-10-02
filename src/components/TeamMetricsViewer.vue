@@ -44,9 +44,22 @@
           <v-card elevation="4" class="metric-card">
             <v-card-item>
               <div class="card-content">
-                <div class="metric-title">Total Active Users</div>
+                <div class="metric-title">Latest Active Users</div>
                 <div class="metric-subtitle">For {{ selectedTeam }}</div>
                 <p class="metric-value">{{ teamMetrics.totalActiveUsers }}</p>
+              </div>
+            </v-card-item>
+          </v-card>
+        </v-col>
+
+        <!-- Total Active Chat Users Card -->
+        <v-col cols="12" sm="6" md="3">
+          <v-card elevation="4" class="metric-card">
+            <v-card-item>
+              <div class="card-content">
+                <div class="metric-title">Latest Active Chat Users</div>
+                <div class="metric-subtitle">For {{ selectedTeam }}</div>
+                <p class="metric-value">{{ teamMetrics.totalActiveChatUsers }}</p>
               </div>
             </v-card-item>
           </v-card>
@@ -102,15 +115,18 @@
         </v-col>
       </v-row>
     </v-container>
-    <!-- Breakdown Component -->
+    <!-- Breakdown by Language -->
     <h1 class="text-center">Breakdown by Language</h1>
     <v-container fluid class="dashboard-container">
-      <TeamBreakdownComponent :metrics="filteredMetrics" :breakdownKey="'language'" />
+      <!-- Add :key to force re-render when filteredMetrics changes -->
+      <TeamBreakdownComponent :metrics="filteredMetrics" :breakdownKey="'language'" :key="filteredMetricsKey" />
     </v-container>
 
+    <!-- Breakdown by Editor -->
     <h1 class="text-center">Breakdown by Editor</h1>
     <v-container fluid class="dashboard-container">
-      <TeamBreakdownComponent :metrics="filteredMetrics" :breakdownKey="'editor'" />
+      <!-- Add :key to force re-render when filteredMetrics changes -->
+      <TeamBreakdownComponent :metrics="filteredMetrics" :breakdownKey="'editor'" :key="filteredMetricsKey" />
     </v-container>
   </div>
 </template>
@@ -129,7 +145,8 @@ import {
   Title,
   Tooltip,
   Legend,
-  ChartOptions
+  ChartOptions,
+  Filler,
 } from 'chart.js';
 import { TeamMetrics } from '@/model/Metrics';
 import TeamBreakdownComponent from "./TeamBreakdownComponent.vue";
@@ -142,7 +159,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 export default defineComponent({
@@ -163,8 +181,9 @@ export default defineComponent({
   },
   setup(props) {
     const toast = useToast();
-    const selectedTeam = ref('All Teams');
+    const selectedTeam = ref('rci-mfv');
     const filteredMetrics = ref<any[]>([]);
+    const filteredMetricsKey = ref(0); 
     const teamMetrics = ref({
       totalSuggestionsCount: 0,
       totalAcceptancesCount: 0,
@@ -172,7 +191,8 @@ export default defineComponent({
       totalLinesAccepted: 0,
       totalActiveUsers: 0,
       totalChatAcceptances: 0,
-      totalChatTurns: 0
+      totalChatTurns: 0,
+      totalActiveChatUsers: 0,
     });
     const suggestionsAcceptancesChartData = ref<{
       labels: string[];
@@ -188,21 +208,6 @@ export default defineComponent({
       labels: string[];
       datasets: any[];
     }>({ labels: [], datasets: [] });
-
-    // const userEngagementFunnelData = ref({
-    //   labels: [] as string[], // Explicitly define the type as string[]
-    //   datasets: [{
-    //     data: [],
-    //     backgroundColor: [] as string[], // Explicitly define the type as string[]
-    //     borderColor: [] as string[], // Explicitly define the type as string[]
-    //     borderWidth: 1
-    //   }] as {
-    //     data: number[];
-    //     backgroundColor: string[];
-    //     borderColor: string[];
-    //     borderWidth: number;
-    //   }[]
-    // });
 
     //Chart Options
     const chartOptions: ChartOptions<"bar" | "line"> = {
@@ -252,46 +257,13 @@ export default defineComponent({
       },
     };
 
-    // const funnelChartOptions = {
-    //   responsive: true,
-    //   maintainAspectRatio: true,
-    //   animation: {
-    //     animateScale: true,
-    //     animateRotate: true
-    //   },
-    //   legend: {
-    //     display: true,
-    //     position: 'right' as const
-    //   },
-    //   title: {
-    //     display: true,
-    //     text: 'User Engagement Funnel'
-    //   },
-    //   tooltips: {
-    //     callbacks: {
-    //       label: function (tooltipItem: any, data: any) {
-    //         const dataset = data.datasets[tooltipItem.datasetIndex];
-    //         const currentValue = dataset.data[tooltipItem.index];
-    //         const total = dataset.data[0];
-    //         const percentage = ((currentValue / total) * 100).toFixed(2);
-    //         return `${data.labels[tooltipItem.index]}: ${currentValue} (${percentage}%)`;
-    //       }
-    //     }
-    //   }
-    // };
-
     const updateTeamData = () => {
-      console.log("updateTeamData | props.metrics = ", props.metrics);
       const teamData = props.metrics.find((m: TeamMetrics) => m.team_tag === selectedTeam.value);
       filteredMetrics.value = teamData ? teamData.metrics : [];
-
-      console.log("selectedTeam = ", selectedTeam.value);
-      console.log("filteredMetrics = ", filteredMetrics.value);
 
       if (filteredMetrics.value.length === 0) {
         console.warn(`No metrics found for team: ${selectedTeam.value}`);
         toast.warning(`No metrics found for team-slug: ${selectedTeam.value}`);
-        return;
       }
 
       // Calculate team metrics
@@ -303,6 +275,7 @@ export default defineComponent({
         totalActiveUsers: number;
         totalChatAcceptances: number;
         totalChatTurns: number;
+        totalActiveChatUsers: number;
       }, curr: any) => {
         acc.totalSuggestionsCount += curr.total_suggestions_count;
         acc.totalAcceptancesCount += curr.total_acceptances_count;
@@ -313,6 +286,7 @@ export default defineComponent({
 
         // Get last day's active users
         acc.totalActiveUsers = curr.total_active_users;
+        acc.totalActiveChatUsers = curr.total_active_chat_users;
         return acc;
       }, {
         totalSuggestionsCount: 0,
@@ -321,8 +295,10 @@ export default defineComponent({
         totalLinesAccepted: 0,
         totalActiveUsers: 0,
         totalChatAcceptances: 0,
-        totalChatTurns: 0
+        totalChatTurns: 0,
+        totalActiveChatUsers: 0
       });
+      filteredMetricsKey.value++;
 
       // Update charts based on filtered metrics
       updateChartDatasets(filteredMetrics.value);
@@ -449,32 +425,6 @@ export default defineComponent({
       };
     };
 
-    // const updateUserEngagementFunnelData = (metrics: any) => {
-    //   const totalUsers = metrics.totalActiveUsers || 0;
-    //   const activeUsers = totalUsers;
-    //   const usersShownSuggestions = totalUsers > 0 ? Math.min(totalUsers, metrics.totalSuggestionsCount) : 0;
-    //   const usersAcceptingSuggestions = totalUsers > 0 ? Math.min(totalUsers, metrics.totalAcceptancesCount) : 0;
-
-    //   userEngagementFunnelData.value = {
-    //     labels: ['Total Users', 'Active Users', 'Users Shown Suggestions', 'Users Accepting Suggestions'],
-    //     datasets: [{
-    //       data: [totalUsers, activeUsers, usersShownSuggestions, usersAcceptingSuggestions],
-    //       backgroundColor: [
-    //         'rgba(255, 99, 132, 0.6)',
-    //         'rgba(54, 162, 235, 0.6)',
-    //         'rgba(255, 206, 86, 0.6)',
-    //         'rgba(75, 192, 192, 0.6)'
-    //       ],
-    //       borderColor: [
-    //         'rgba(255, 99, 132, 1)',
-    //         'rgba(54, 162, 235, 1)',
-    //         'rgba(255, 206, 86, 1)',
-    //         'rgba(75, 192, 192, 1)'
-    //       ],
-    //       borderWidth: 1
-    //     }]
-    //   };
-    // };
 
     watch(selectedTeam, updateTeamData, { immediate: true });
 
@@ -487,8 +437,8 @@ export default defineComponent({
       suggestionsAcceptancesChartData,
       linesSuggestedAcceptedChartData,
       chatTurnsAcceptancesChartData,
-      // userEngagementFunnelData,
-      filteredMetrics
+      filteredMetrics,
+      filteredMetricsKey,
     };
   }
 });

@@ -12,6 +12,7 @@ import enterpriseMockedResponse from '../assets/enterprise_response_sample.json'
 import teamMockedResponse from '../assets/teams_response.json';
 import config from '../config';
 import { Team } from "@/model/Teams";
+import { Members } from "@/model/Members";
 
 export const getMetricsApi = async (): Promise<Metrics[]> => {
 
@@ -97,3 +98,38 @@ export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> =>
   }
   return metricsData;
 };
+
+// Get the team members from the GitHub API
+export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
+  let response;
+  let membersData;
+
+  if (config.mockedData) {
+    response = organizationMockedResponse;
+    membersData = response.map((item: any) => new Members(item));
+  } else {
+    try {
+      response = await axios.get(
+        `${config.github.apiUrl}/team/${team_tag}/members`,
+        {
+          headers: {
+            Accept: "application/vnd.github+json",
+            Authorization: `Bearer ${config.github.token}`,
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        membersData = response.data.map((item: any) => new Members(item));
+      } else {
+        console.error(`Error: Received status code ${response.status}`);
+        membersData = [];
+      }
+    } catch (error) {
+      console.error('Error Fetching team members:', error);
+      membersData = [];
+    }
+  }
+  return membersData;
+}

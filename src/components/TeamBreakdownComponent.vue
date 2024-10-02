@@ -85,10 +85,19 @@
             <v-row v-if="breakdownKey != 'editor'" justify="center">
                 <v-col cols="12" md="10">
                     <v-card class="chart-card">
-                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Line
-                            Chart</v-card-title>
+                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Bar Chart</v-card-title>
                         <v-card-text>
-                            <Bar :data="breakdownsChartDataTop20AcceptedData" :options="lineBarChartOptions" />
+                            <Bar :data="breakdownsChartDataTop20AcceptedData" :options="chartOptions" />
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
+            <v-row v-if="breakdownKey != 'editor'" justify="center">
+                <v-col cols="12" md="10">
+                    <v-card class="chart-card">
+                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Line Chart AcceptedPrompt Metrics</v-card-title>
+                        <v-card-text>
+                            <Line :data="breakdownsChartDataTop20AcceptedPromptData" :options="lineBarChartOptions" />
                         </v-card-text>
                     </v-card>
                 </v-col>
@@ -165,7 +174,7 @@ export default defineComponent({
         },
     },
     components: {
-        // Line,
+        Line,
         Pie,
         Bar,
     },
@@ -215,6 +224,11 @@ export default defineComponent({
 
         // Top 20 by language accepted prompts
         const breakdownsChartDataTop20AcceptedData = ref<{
+            labels: string[];
+            datasets: any[];
+        }>({ labels: [], datasets: [] });
+        // Top 20 by language accepted prompts
+        const breakdownsChartDataTop20AcceptedPromptData = ref<{
             labels: string[];
             datasets: any[];
         }>({ labels: [], datasets: [] });
@@ -305,9 +319,9 @@ export default defineComponent({
         // Calculate total metrics
         const totalAcceptedPrompts = computed(() => Array.from(breakdowns.value.values()).reduce((acc, item) => acc + item.acceptedPrompts, 0));
         const totalAcceptedLinesOfCode = computed(() => Array.from(breakdowns.value.values()).reduce((acc, item) => acc + item.acceptedLinesOfCode, 0));
+        const totalSuggestedLinesOfCode = computed(() => Array.from(breakdowns.value.values()).reduce((acc, item) => acc + item.suggestedLinesOfCode, 0));
         const totalAcceptanceRate = computed(() => {
-            const totalSuggestions = totalAcceptedPrompts.value;
-            return totalSuggestions ? (totalAcceptedLinesOfCode.value / totalSuggestions) * 100 : 0;
+            return (totalAcceptedLinesOfCode.value / totalSuggestedLinesOfCode.value) * 100;
         });
 
         //Sort breakdowns map by acceptance rate
@@ -372,15 +386,6 @@ export default defineComponent({
             ),
             datasets: [
                 {
-                    label: "Accepted Prompts",
-                    data: Array.from(top20BreakdownsAcceptedPrompts.values()).map(
-                        (breakdown) => breakdown.suggestedLinesOfCode
-                    ),
-                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                    borderColor: 'rgb(255, 99, 132)',
-                    type: "bar",
-                },
-                {
                     label: "Accepted Lines of Code",
                     data: Array.from(top20BreakdownsAcceptedPrompts.values()).map(
                         (breakdown) => breakdown.acceptedLinesOfCode
@@ -390,13 +395,28 @@ export default defineComponent({
                     type: "bar",
                 },
                 {
-                    label: "Accepted Lines of Code",
+                    label: "Suggestion Lines of Code",
                     data: Array.from(top20BreakdownsAcceptedPrompts.values()).map(
-                        (breakdown) => breakdown.acceptedPrompts
+                        (breakdown) => breakdown.suggestedLinesOfCode
                     ),
                     backgroundColor: '#1A535C',
                     borderColor: 'rgb(75, 192, 192)',
                     type: "bar",
+                },
+            ],
+        }
+        breakdownsChartDataTop20AcceptedPromptData.value = {
+            labels: Array.from(top20BreakdownsAcceptedPrompts.values()).map(
+                (breakdown) => breakdown.name
+            ),
+            datasets: [
+                {
+                    label: "Accepted Prompts",
+                    data: Array.from(top20BreakdownsAcceptedPrompts.values()).map(
+                        (breakdown) => breakdown.acceptedPrompts
+                    ),
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgb(255, 99, 132)',
                 },
             ],
         }
@@ -424,7 +444,7 @@ export default defineComponent({
             numberOfBreakdowns,
             breakdownsChartData,
             breakdownsChartDataTop20AcceptedData,
-            // totalBreakdownsChartData,
+            breakdownsChartDataTop20AcceptedPromptData,
             breakdownsChartDataTop5AcceptedPrompts,
             breakdownsChartDataTop5AcceptanceRate,
             totalAcceptedPrompts,
