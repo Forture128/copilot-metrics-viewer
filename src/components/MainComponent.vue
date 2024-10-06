@@ -19,7 +19,7 @@
 
         <!-- Sidebar Tab Items -->
         <v-list-item v-for="item in tabItems" :key="item" :value="item" :class="{ 'active-item': tab === item }"
-          @click="tab = item">
+        @click="navigateTo(item)">
           <template v-slot:prepend>
             <v-icon>{{ getIconForItem(item) }}</v-icon>
           </template>
@@ -59,6 +59,7 @@
                 <ApiResponse v-if="item === 'api response'" :metrics="metrics" :seats="seats" />
                 <TeamMetricsViewer v-if="item === 'team metrics' && teamMetricsReady" :teams="teamList"
                   :team="teamList[0]" :metrics="teamMetrics" :breakdownKey="'team metrics'" />
+                <DoraDashboard v-if="item === 'dora dashboard'" />
               </v-card>
             </v-window-item>
           </v-window>
@@ -84,6 +85,7 @@ import SeatsAnalysisViewer from "./SeatsAnalysisViewer.vue";
 import ApiResponse from "./ApiResponse.vue";
 import config from "../config";
 import TeamMetricsViewer from "./TeamMetricsViewer.vue";
+import DoraDashboard from "./DoraDashboard.vue";
 
 export default defineComponent({
   name: "MainComponent",
@@ -93,7 +95,8 @@ export default defineComponent({
     CopilotChatViewer,
     SeatsAnalysisViewer,
     ApiResponse,
-    TeamMetricsViewer
+    TeamMetricsViewer,
+    DoraDashboard,
   },
   computed: {
     gitHubOrgName() {
@@ -128,7 +131,7 @@ export default defineComponent({
   },
   data() {
     return {
-      tabItems: ["team metrics", "languages", "editors", "copilot chat", "api response",],
+      tabItems: ["team metrics", "languages", "editors", "copilot chat", "api response", "dora dashboard"],
       tab: "",
     };
   },
@@ -144,8 +147,17 @@ export default defineComponent({
         "team metrics": "mdi-account-group",
         organization: "mdi-domain",
         enterprise: "mdi-office-building",
+        "dora dashboard": "mdi mdi-monitor-dashboard",
       };
       return icons[item] || "mdi-chevron-right";
+    },
+    navigateTo(item: string) {
+      this.tab = item;
+      if (item === 'dora dashboard') {
+        this.$router.push({ name: 'DoraDashboard' });
+      } else {
+        this.$router.push({ name: 'Home' });
+      }
     },
   },
   created() {

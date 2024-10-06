@@ -1,26 +1,15 @@
 <template>
   <v-app>
     <v-main>
-      <MainComponent/>
+      <router-view></router-view>
     </v-main>
   </v-app>
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
-import MainComponent from './components/MainComponent.vue'
+import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'App',
-
-  components: {
-    MainComponent,
-  },
-
-  data () {
-    return {
-      //
-    }
-  },
-})
+});
 </script>

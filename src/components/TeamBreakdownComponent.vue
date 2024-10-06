@@ -85,7 +85,8 @@
             <v-row v-if="breakdownKey != 'editor'" justify="center">
                 <v-col cols="12" md="10">
                     <v-card class="chart-card">
-                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Bar Chart</v-card-title>
+                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Bar
+                            Chart</v-card-title>
                         <v-card-text>
                             <Bar :data="breakdownsChartDataTop20AcceptedData" :options="chartOptions" />
                         </v-card-text>
@@ -95,7 +96,8 @@
             <v-row v-if="breakdownKey != 'editor'" justify="center">
                 <v-col cols="12" md="10">
                     <v-card class="chart-card">
-                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Line Chart AcceptedPrompt Metrics</v-card-title>
+                        <v-card-title class="text-center">{{ breakdownDisplayNamePlural }} Breakdown Line Chart
+                            AcceptedPrompt Metrics</v-card-title>
                         <v-card-text>
                             <Line :data="breakdownsChartDataTop20AcceptedPromptData" :options="lineBarChartOptions" />
                         </v-card-text>
@@ -325,11 +327,9 @@ export default defineComponent({
         });
 
         //Sort breakdowns map by acceptance rate
-        breakdowns.value[Symbol.iterator] = function* () {
-            yield* [...this.entries()].sort(
-                (a, b) => b[1].acceptanceRate - a[1].acceptanceRate
-            );
-        };
+        breakdowns.value = new Map([...breakdowns.value.entries()].sort(
+            (a, b) => b[1].acceptanceRate - a[1].acceptanceRate
+        ));
 
         // Get the top 5 breakdowns by acceptance rate
         const top5BreakdownsAcceptanceRate = new Map(
@@ -351,11 +351,9 @@ export default defineComponent({
         };
 
         //Sort breakdowns map by accepted prompts
-        breakdowns.value[Symbol.iterator] = function* () {
-            yield* [...this.entries()].sort(
-                (a, b) => b[1].acceptedPrompts - a[1].acceptedPrompts
-            );
-        };
+        breakdowns.value = new Map([...breakdowns.value.entries()].sort(
+            (a, b) => b[1].acceptedPrompts - a[1].acceptedPrompts
+        ));
         // Get the top 5 breakdowns by accepted prompts
         const top5BreakdownsAcceptedPrompts = new Map(
             [...breakdowns.value].slice(0, 5)

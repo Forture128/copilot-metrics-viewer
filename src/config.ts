@@ -18,6 +18,7 @@ if (VALID_SCOPE.includes(env.VUE_APP_SCOPE)) {
 }
 
 let apiUrl: string;
+const baseUrl = 'https://api.github.com';
 const githubOrgName = env.VUE_APP_GITHUB_ORG;
 const githubEntName = env.VUE_APP_GITHUB_ENT;
 
@@ -45,7 +46,8 @@ const config: Config = {
 		ent: githubEntName,
 		team: env.VUE_APP_GITHUB_TEAM,
 		token: env.VUE_APP_GITHUB_TOKEN,
-		apiUrl
+		apiUrl,
+		baseUrl
 	}
 }
 if (!config.mockedData && !config.github.token) {
@@ -65,5 +67,6 @@ interface Config {
 		team: string;
 		token: string;
 		apiUrl: string;
+		baseUrl: string;
 	}
 }
