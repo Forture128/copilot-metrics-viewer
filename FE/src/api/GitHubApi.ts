@@ -102,7 +102,7 @@ export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> =>
 // Get the team members from the GitHub API
 export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
   let response;
-  let membersData;
+  let membersData: Members[] = [];
 
   if (config.mockedData) {
     response = organizationMockedResponse;
@@ -110,7 +110,7 @@ export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
   } else {
     try {
       response = await axios.get(
-        `${config.github.apiUrl}/team/${team_tag}/members`,
+        `${config.github.apiUrl}/teams/${team_tag}/members`,
         {
           headers: {
             Accept: "application/vnd.github+json",
@@ -121,15 +121,20 @@ export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
       );
 
       if (response.status === 200) {
-        membersData = response.data.map((item: any) => new Members(item));
+        if (Array.isArray(response.data)) {
+          membersData = response.data.map((item: any) => new Members(item));
+        } else {
+          console.error('Error: Response data is not an array', response.data);
+          membersData = [];
+        }
       } else {
         console.error(`Error: Received status code ${response.status}`);
         membersData = [];
       }
     } catch (error) {
-      console.error('Error Fetching team members:', error);
+      console.error('Error fetching team members:', error);
       membersData = [];
     }
   }
   return membersData;
-}
+};

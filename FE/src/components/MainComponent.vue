@@ -1,41 +1,29 @@
 <template>
   <!-- Main Layout -->
   <v-app>
-    <!-- Sidebar -->
-    <v-navigation-drawer app permanent color="indigo">
-      <v-list>
-        <v-list-item>
-          <v-list-item-content>
-            <v-list-item-title class="text-h6">
-              Copilot Metrics Viewer
-            </v-list-item-title>
-            <v-list-item-subtitle>
-              {{ capitalizedItemName }} : {{ displayedViewName }} {{ teamName }}
-            </v-list-item-subtitle>
-          </v-list-item-content>
-        </v-list-item>
+    <v-toolbar color="indigo" elevation="4">
+      <v-btn icon>
+        <v-icon>mdi-github</v-icon>
+      </v-btn>
 
-        <v-divider></v-divider>
+      <v-toolbar-title class="toolbar-title">Copilot Metrics Viewer | {{ capitalizedItemName }} : {{ displayedViewName
+        }} {{ teamName }}
 
-        <!-- Sidebar Tab Items -->
-        <v-list-item v-for="item in tabItems" :key="item" :value="item" :class="{ 'active-item': tab === item }"
-        @click="navigateTo(item)">
-          <template v-slot:prepend>
-            <v-icon>{{ getIconForItem(item) }}</v-icon>
-          </template>
-          <v-list-item-title class="uppercase-text">{{
-            item
-            }}</v-list-item-title>
-        </v-list-item>
-        <!-- <v-list-item v-if="tabItems.includes('team metrics') && selectedTeam" :key="'team metrics'"
-          :value="'team metrics'" :class="{ 'active-item': tab === 'team metrics' }" @click="tab = 'team metrics'">
-          <template v-slot:prepend>
-            <v-icon>{{ getIconForItem('team metrics') }}</v-icon>
-          </template>
-          <v-list-item-title class="uppercase-text">Team Metrics</v-list-item-title>
-        </v-list-item> -->
-      </v-list>
-    </v-navigation-drawer>
+      </v-toolbar-title>
+      <h2 class="error-message"> {{ mockedDataMessage }} </h2>
+      <v-spacer></v-spacer>
+
+      <template v-slot:extension>
+
+        <v-tabs v-model="tab" align-tabs="title">
+          <v-tab v-for="item in tabItems" :key="item" :value="item">
+            {{ item }}
+          </v-tab>
+        </v-tabs>
+
+      </template>
+
+    </v-toolbar>
 
     <!-- Main Content Area -->
     <v-main>
@@ -51,7 +39,7 @@
           <v-window v-if="metricsReady" v-model="tab">
             <v-window-item v-for="item in tabItems" :key="item" :value="item">
               <v-card flat>
-                <MetricsViewer v-if="item === itemName" :metrics="metrics" />
+                <MetricsViewer v-if="item === itemName" :metrics="metrics" :teamMetrics="teamMetrics" />
                 <BreakdownComponent v-if="item === 'languages'" :metrics="metrics" :breakdownKey="'language'" />
                 <BreakdownComponent v-if="item === 'editors'" :metrics="metrics" :breakdownKey="'editor'" />
                 <CopilotChatViewer v-if="item === 'copilot chat'" :metrics="metrics" />
@@ -131,7 +119,7 @@ export default defineComponent({
   },
   data() {
     return {
-      tabItems: ["team metrics", "languages", "editors", "copilot chat", "api response", "dora dashboard"],
+      tabItems: ["team metrics", "languages", "editors", "copilot chat", "api response", "seat analysis", "dora dashboard"],
       tab: "",
     };
   },
@@ -166,7 +154,7 @@ export default defineComponent({
       // get the last item in the array,which is 'api response'
       //and add 'seat analysis' before it
       let lastItem = this.tabItems.pop();
-      this.tabItems.push("seat analysis");
+      // this.tabItems.push("seat analysis");
       if (lastItem) {
         this.tabItems.push(lastItem);
       }
@@ -180,7 +168,7 @@ export default defineComponent({
     const seats = ref<Seat[]>([]);
 
     const teamList = ref<string[]>([]);
-    teamList.value = ["All Teams", "cloud_transfer_reviewers", "neo-ap", "rci-mfv"];
+    teamList.value = ["cloud_transfer_reviewers", "neo-ap", "rci-mfv", "attendance_dev_reviewers", "mf_connected_db_developers", "payroll_dev_reviewers", "payroll_kotlin_reviewers", "social_insurance_dev_reviewers", "tax_adjustment_dev_mfj_reviewers"];
     const membersMetrics = ref<MembersMetrics[]>([]);
     const teamMetrics = ref<TeamMetrics[]>([]);
     const teamMetricsReady = ref(false);
@@ -226,6 +214,7 @@ export default defineComponent({
     //     // convert Array[Team] to array name of teams
     //     teamList.value = data.map((team) => team.slug);
     //     // teamTagList.value = data.map((team) => team.slug);
+    //     console.log("Team List: ", teamList.value);
     //   })
     //   .catch((error) => handleApiError(error, apiError));
 
@@ -252,11 +241,12 @@ export default defineComponent({
         teamList.value.forEach(async (team) => {
           if (team !== "All Teams") {
             const metrics = await getTeamMetricsApi(team);
-            // const members = await getTeamMembers(team);
-            const teamData: TeamMetrics = {
+            const members = await getTeamMembers(team);
+            console.log("Team members: ", members);
+            const teamData: MembersMetrics = {
               team_tag: team,
               metrics: metrics,
-              // members: members,
+              members: members,
             };
             teamMetrics.value.push(teamData);
           }

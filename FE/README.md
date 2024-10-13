@@ -1,9 +1,5 @@
 This application is designed to provide clear visualizations of various metrics related to GitHub Copilot for your GitHub Organization or Enterprise Account. It utilizes the [GitHub Copilot Metrics API](https://docs.github.com/en/enterprise-cloud@latest/rest/copilot/copilot-usage?apiVersion=2022-11-28) to gather the necessary data.
 
-## Video
-
-You can watch a video demonstration of the GitHub Copilot Metrics Viewer [here](https://github.com/github-copilot-resources/copilot-metrics-viewer/assets/3329307/bc7e2a16-cc73-43c4-887a-b50809c08533).
-
 ## Key Metrics
 
 The GitHub Copilot Metrics Viewer provides the following key metrics visualized in charts:
@@ -78,14 +74,3 @@ To set up the GitHub Copilot Metrics Viewer, follow these steps:
 
 The GitHub Copilot Metrics Viewer will be accessible at http://localhost:8080.
 
-## License
-
-This project is licensed under the terms of the MIT open source license. Please refer to the [LICENSE.txt](./LICENSE.txt) file for the full terms.
-
-## Support
-
-This project is not an official GitHub product and is maintained by dedicated contributors. Support is provided through [GitHub Issues](https://github.com/github-copilot-resources/copilot-metrics-viewer/issues). Please note that responses may not be immediate, but critical issues will be prioritized.
-
-## Fork Information
-
-This repository is a fork of the original project by [@martedesco](https://github.com/martedesco). It includes custom metrics and layouts for personal and study purposes.

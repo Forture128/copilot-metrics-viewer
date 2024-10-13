@@ -63,12 +63,12 @@
 
     <!-- Combined Charts Section -->
     <v-container fluid class="charts-container">
-      <!-- Total Active Users Chart -->
+      <!-- New Line Chart for Acceptance Rates by Teams -->
       <v-row>
         <v-col cols="12">
-          <h2 class="text-center">Total Active Users</h2>
+          <h3 class="text-center">Team Acceptance Rates</h3>
           <v-card class="chart-card">
-            <Bar :data="totalActiveUsersChartData" :options="totalActiveUsersChartOptions" />
+            <Line :data="teamAcceptanceRateChartData" :options="teamAcceptanceRateChartOptions" />
           </v-card>
         </v-col>
       </v-row>
@@ -104,7 +104,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, toRef } from "vue";
-import { Metrics } from "../model/Metrics";
+import { Metrics, TeamMetrics } from "../model/Metrics";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -119,7 +119,6 @@ import {
 } from "chart.js";
 
 import { Line } from "vue-chartjs";
-import { Bar } from "vue-chartjs";
 import { ChartOptions } from "chart.js";
 
 ChartJS.register(
@@ -141,95 +140,90 @@ export default defineComponent({
       type: Object,
       required: true,
     },
+    teamMetrics: {
+      type: Array as () => TeamMetrics[],
+      required: true,
+    },
   },
   components: {
     Line,
-    Bar,
-  },
-  data() {
-    return {
-      data: {
-        labels: ["VueJs", "EmberJs", "ReactJs", "AngularJs"],
-        datasets: [
-          {
-            backgroundColor: ["#41B883", "#E46651", "#00D8FF", "#DD1B16"],
-            data: [40, 20, 80, 10],
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-      },
-    };
   },
   setup(props) {
-    //Tiles
+    console.log("MetricsViewer props", props.teamMetrics);
+
+    // Tiles
     const acceptanceRateAverage = ref(0);
     const cumulativeNumberSuggestions = ref(0);
     const cumulativeNumberAcceptances = ref(0);
     const cumulativeNumberLOCAccepted = ref(0);
 
-    //Acceptance Rate
+    // Chart Data
+    const teamAcceptanceRateChartData = ref<{ labels: string[]; datasets: any[] }>({
+      labels: [],
+      datasets: [],
+    });
+
     const acceptanceRateChartData = ref<{ labels: string[]; datasets: any[] }>({
       labels: [],
       datasets: [],
     });
 
-    //Total Suggestions Count | Total Acceptance Counts
     const totalSuggestionsAndAcceptanceChartData = ref<{
       labels: string[];
       datasets: any[];
     }>({ labels: [], datasets: [] });
 
-    //Total Lines Suggested | Total Lines Accepted
     const chartData = ref<{ labels: string[]; datasets: any[] }>({
       labels: [],
       datasets: [],
     });
 
-    //Total Active Users
     const totalActiveUsersChartData = ref<{
       labels: string[];
       datasets: any[];
     }>({ labels: [], datasets: [] });
 
-    //Chart Options
+    // Chart Options
     const chartOptions: ChartOptions<"bar" | "line"> = {
       responsive: true,
       maintainAspectRatio: true,
       scales: {
-        // Primary Y-axis for Total Lines Suggested and Accepted
         y: {
           beginAtZero: true,
           ticks: {
-            stepSize: 5000, // Customize this based on your data range
+            stepSize: 5000,
           },
           title: {
             display: true,
-            text: "Lines Suggested / Accepted",
+            text: "Suggested / Accepted",
+          },
+          grid: {
+            display: false, // Remove y-axis grid lines
           },
         },
-        // Secondary Y-axis for Acceptance Rate
         y1: {
           beginAtZero: true,
-          position: "right", // Position this axis on the right side
+          position: "right",
           ticks: {
             callback: function (value: string | number) {
-              return value + "%"; // Add percentage symbol to the ticks
+              return value + "%";
             },
           },
           title: {
             display: true,
             text: "Acceptance Rate (%)",
           },
+          grid: {
+            display: false, // Remove y1-axis grid lines
+          },
         },
         x: {
           type: "category",
           ticks: {
             autoSkip: true,
-            maxTicksLimit: 10,
+            maxTicksLimit: 10, 
           },
+          
         },
       },
       layout: {
@@ -242,29 +236,49 @@ export default defineComponent({
       },
     };
 
-    const totalActiveUsersChartOptions = {
-      responsive: true,
-      maintainAspectRatio: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1,
-          },
-        },
-      },
-      layout: {
-        padding: {
-          left: 50,
-          right: 50,
-          top: 50,
-          bottom: 50,
-        },
-      },
+    const teamAcceptanceRateChartOptions: ChartOptions<"bar" | "line"> = {
+      ...chartOptions,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                if (context.dataset.yAxisID === 'y1') {
+                  label += context.parsed.y.toFixed(2) + '%';
+                } else {
+                  label += context.parsed.y;
+                }
+              }
+              return label;
+            }
+          }
+        }
+      }
     };
 
     const data = toRef(props, "metrics").value;
+    const teamMetricsData = toRef(props, "teamMetrics").value.filter((team) => team.team_tag !== "All Teams");
 
+    // Method to calculate acceptance rate for each team
+    const calculateTeamAcceptanceRate = (teamMetrics: Metrics[]) => {
+      const totalSuggestions = teamMetrics.reduce(
+        (sum, m) => sum + m.total_suggestions_count,
+        0
+      );
+      const totalAcceptances = teamMetrics.reduce(
+        (sum, m) => sum + m.total_acceptances_count,
+        0
+      );
+      return totalSuggestions > 0
+        ? (totalAcceptances / totalSuggestions) * 100
+        : 0;
+    };
+
+    // Calculate cumulative metrics
     cumulativeNumberSuggestions.value = 0;
     const cumulativeSuggestionsData = data.map((m: Metrics) => {
       cumulativeNumberSuggestions.value += m.total_suggestions_count;
@@ -276,12 +290,11 @@ export default defineComponent({
       cumulativeNumberAcceptances.value += m.total_acceptances_count;
       return m.total_acceptances_count;
     });
+
     const acceptanceRates = data.map((m: Metrics) => {
-      const rate =
-        m.total_lines_suggested !== 0
-          ? (m.total_acceptances_count / m.total_suggestions_count) * 100
-          : 0;
-      return rate;
+      return m.total_suggestions_count !== 0
+        ? (m.total_acceptances_count / m.total_suggestions_count) * 100
+        : 0;
     });
 
     totalSuggestionsAndAcceptanceChartData.value = {
@@ -290,16 +303,16 @@ export default defineComponent({
         {
           label: "Total Suggestions",
           data: cumulativeSuggestionsData,
-          backgroundColor: "rgba(75, 192, 192, 0.2)",
-          borderColor: "rgba(75, 192, 192, 1)",
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgb(75, 192, 192)',
           type: "bar",
           yAxisID: "y",
         },
         {
           label: "Total Acceptance",
           data: cumulativeAcceptancesData,
-          backgroundColor: "rgba(153, 102, 255, 0.2)",
-          borderColor: "rgba(153, 102, 255, 1)",
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgb(255, 99, 132)',
           type: "bar",
           yAxisID: "y",
         },
@@ -308,25 +321,22 @@ export default defineComponent({
           data: acceptanceRates,
           type: "line",
           yAxisID: "y1",
-          backgroundColor: "rgba(255, 159, 64, 0.2)",
-          borderColor: "rgba(255, 159, 64, 1)",
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgb(54, 162, 235)',
         },
       ],
     };
 
     cumulativeNumberLOCAccepted.value = 0;
     const cumulativeLOCAcceptedData = data.map((m: Metrics) => {
-      const total_lines_accepted = m.total_lines_accepted;
-      cumulativeNumberLOCAccepted.value += total_lines_accepted;
-      return total_lines_accepted;
+      cumulativeNumberLOCAccepted.value += m.total_lines_accepted;
+      return m.total_lines_accepted;
     });
 
     const acceptanceLinesRates = data.map((m: Metrics) => {
-      const rate =
-        m.total_lines_suggested !== 0
-          ? (m.total_lines_accepted / m.total_lines_suggested) * 100
-          : 0;
-      return rate;
+      return m.total_lines_suggested !== 0
+        ? (m.total_lines_accepted / m.total_lines_suggested) * 100
+        : 0;
     });
 
     chartData.value = {
@@ -335,32 +345,30 @@ export default defineComponent({
         {
           label: "Total Lines Suggested",
           data: data.map((m: Metrics) => m.total_lines_suggested),
-          backgroundColor: "rgba(75, 192, 192, 0.2)",
-          borderColor: "rgba(75, 192, 192, 1)",
-          type: "bar", // Bar chart for suggestions
-          yAxisID: "y", // Assign to the primary Y-axis
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgb(75, 192, 192)',
+          type: "bar",
+          yAxisID: "y",
         },
         {
           label: "Total Lines Accepted",
           data: cumulativeLOCAcceptedData,
-          backgroundColor: "rgba(153, 102, 255, 0.2)",
-          borderColor: "rgba(153, 102, 255, 1)",
-          type: "bar", // Bar chart for acceptances
-          yAxisID: "y", // Assign to the primary Y-axis
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgb(255, 99, 132)',
+          type: "bar",
+          yAxisID: "y",
         },
         {
           label: "Acceptance Lines Rate",
           data: acceptanceLinesRates,
-          backgroundColor: "rgba(173, 216, 230, 0.2)",
-          borderColor: "rgba(173, 216, 230, 1)",
-          type: "line", // Line chart for acceptance rate
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgb(54, 162, 235)',
+          type: "line",
           fill: false,
-          yAxisID: "y1", // Assign to the secondary Y-axis
+          yAxisID: "y1",
         },
       ],
     };
-
-
 
     if (cumulativeNumberSuggestions.value === 0) {
       acceptanceRateAverage.value = 0;
@@ -377,8 +385,58 @@ export default defineComponent({
         {
           label: "Total Active Users",
           data: data.map((m: Metrics) => m.total_active_users),
-          backgroundColor: "rgba(0, 0, 139, 0.2)", // dark blue with 20% opacity
+          backgroundColor: "rgba(0, 0, 139, 0.2)",
           borderColor: "rgba(255, 99, 132, 1)",
+        },
+      ],
+    };
+
+    // Prepare data for the chart
+    const sortedTeams = teamMetricsData
+      .map((team) => ({
+        team_tag: team.team_tag,
+        acceptanceRate: calculateTeamAcceptanceRate(team.metrics),
+        totalSuggestion: team.metrics.reduce(
+          (sum, m) => sum + m.total_suggestions_count,
+          0
+        ),
+        totalAcceptance: team.metrics.reduce(
+          (sum, m) => sum + m.total_acceptances_count,
+          0
+        ),
+      }))
+      .sort((a, b) => b.acceptanceRate - a.acceptanceRate);
+
+    console.log("Sorted Teams: ", sortedTeams);
+
+    // Update the chart data
+    teamAcceptanceRateChartData.value = {
+      labels: sortedTeams.map((team) => team.team_tag),
+      datasets: [
+        {
+          label: "Acceptance Rate",
+          data: sortedTeams.map((team) => team.acceptanceRate),
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgb(54, 162, 235)',
+          fill: false,
+          type: "line",
+          yAxisID: "y1",
+        },
+        {
+          label: "Total Suggestions",
+          data: sortedTeams.map((team) => team.totalSuggestion),
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgb(75, 192, 192)',
+          type: "bar",
+          yAxisID: "y",
+        },
+        {
+          label: "Total Acceptances",
+          data: sortedTeams.map((team) => team.totalAcceptance),
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgb(255, 99, 132)',
+          type: "bar",
+          yAxisID: "y",
         },
       ],
     };
@@ -388,12 +446,13 @@ export default defineComponent({
       chartData,
       chartOptions,
       totalActiveUsersChartData,
-      totalActiveUsersChartOptions,
       acceptanceRateChartData,
       acceptanceRateAverage,
       cumulativeNumberSuggestions,
       cumulativeNumberAcceptances,
       cumulativeNumberLOCAccepted,
+      teamAcceptanceRateChartData,
+      teamAcceptanceRateChartOptions,
     };
   },
 });
