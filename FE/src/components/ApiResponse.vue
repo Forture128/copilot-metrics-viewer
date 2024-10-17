@@ -75,7 +75,6 @@ export default defineComponent({
   
   showSeatCount() {
     const seatCount = this.seats.length;
-    //console.log('Seat count:', seatCount);
     this.message = `Seat count: ${seatCount}`;
 
     this.showSeatMessage = true;

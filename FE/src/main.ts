@@ -7,7 +7,7 @@ import './assets/global.css';
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import router from './router';
-import store from './store/DoraData';
+import store from './store';
 loadFonts()
 const options = {
   // You can set your default options here

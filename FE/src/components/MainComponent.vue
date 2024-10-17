@@ -40,6 +40,7 @@
             <v-window-item v-for="item in tabItems" :key="item" :value="item">
               <v-card flat>
                 <MetricsViewer v-if="item === itemName" :metrics="metrics" :teamMetrics="teamMetrics" />
+                <DepartmentsMetricsViewer v-if="item === 'departments'" :teamMetrics="teamMetrics" />
                 <BreakdownComponent v-if="item === 'languages'" :metrics="metrics" :breakdownKey="'language'" />
                 <BreakdownComponent v-if="item === 'editors'" :metrics="metrics" :breakdownKey="'editor'" />
                 <CopilotChatViewer v-if="item === 'copilot chat'" :metrics="metrics" />
@@ -58,12 +59,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref } from "vue";
-import { getMetricsApi, getTeamMembers, getTeams } from "../api/GitHubApi";
-import { getTeamMetricsApi } from "../api/GitHubApi";
-import { getSeatsApi } from "../api/ExtractSeats";
-import { MembersMetrics, Metrics, TeamMetrics } from "../model/Metrics";
-import { Seat } from "../model/Seat";
+import { defineComponent, onMounted } from "vue";
+import { useStore } from "vuex";
+import { mapState, mapActions } from "vuex";
+import config from "../config";
 
 //Components
 import MetricsViewer from "./MetricsViewer.vue";
@@ -71,14 +70,15 @@ import BreakdownComponent from "./BreakdownComponent.vue";
 import CopilotChatViewer from "./CopilotChatViewer.vue";
 import SeatsAnalysisViewer from "./SeatsAnalysisViewer.vue";
 import ApiResponse from "./ApiResponse.vue";
-import config from "../config";
 import TeamMetricsViewer from "./TeamMetricsViewer.vue";
 import DoraDashboard from "./DoraDashboard.vue";
+import DepartmentsMetricsViewer from "./DepartmentsMetricsViewer.vue";
 
 export default defineComponent({
   name: "MainComponent",
   components: {
     MetricsViewer,
+    DepartmentsMetricsViewer,
     BreakdownComponent,
     CopilotChatViewer,
     SeatsAnalysisViewer,
@@ -87,6 +87,17 @@ export default defineComponent({
     DoraDashboard,
   },
   computed: {
+    ...mapState({
+      metricsReady: (state: any) => state.CopilotUsage.metricsReady,
+      metrics: (state: any) => state.CopilotUsage.metrics,
+      seatsReady: (state: any) => state.CopilotUsage.seatsReady,
+      seats: (state: any) => state.CopilotUsage.seats,
+      teamList: (state: any) => state.CopilotUsage.teamList,
+      teamMetrics: (state: any) => state.CopilotUsage.teamMetrics,
+      teamMetricsReady: (state: any) => state.CopilotUsage.teamMetricsReady,
+      apiError: (state: any) => state.CopilotUsage.apiError,
+    }),
+    // ...mapGetters("CopilotUsage", ["gitHubOrgName", "itemName", "capitalizedItemName", "displayedViewName", "isScopeOrganization"]),
     gitHubOrgName() {
       return config.github.org;
     },
@@ -124,6 +135,7 @@ export default defineComponent({
     };
   },
   methods: {
+    ...mapActions("CopilotUsage", ["fetchMetrics", "fetchSeats", "fetchAllTeamMetrics"]),
     getIconForItem(item: string): string {
       // Add icons for each menu item
       const icons: { [key: string]: string } = {
@@ -161,124 +173,22 @@ export default defineComponent({
     }
   },
   setup() {
-    const metricsReady = ref(false);
-    const metrics = ref<Metrics[]>([]);
-
-    const seatsReady = ref(false);
-    const seats = ref<Seat[]>([]);
-
-    const teamList = ref<string[]>([]);
-    teamList.value = ["cloud_transfer_reviewers", "neo-ap", "rci-mfv", "attendance_dev_reviewers", "mf_connected_db_developers", "payroll_dev_reviewers", "payroll_kotlin_reviewers", "social_insurance_dev_reviewers", "tax_adjustment_dev_mfj_reviewers"];
-    const membersMetrics = ref<MembersMetrics[]>([]);
-    const teamMetrics = ref<TeamMetrics[]>([]);
-    const teamMetricsReady = ref(false);
-    // API Error Message
-    const apiError = ref<string | undefined>(undefined);
-
-    // if (config.github.team && config.github.team.trim() !== "") {
-    //   getTeamMetricsApi()
-    //     .then((data) => {
-    //       metrics.value = data;
-
-    //       // Set metricsReady to true after the call completes.
-    //       metricsReady.value = true;
-    //     })
-    //     .catch((error) => handleApiError(error, apiError));
-    // }
-
-    if (metricsReady.value === false) {
-      getMetricsApi()
-        .then((data) => {
-          metrics.value = data;
-
-          // Set metricsReady to true after the call completes.
-          metricsReady.value = true;
-        })
-        .catch((error) => handleApiError(error, apiError));
-    }
-
-    getSeatsApi()
-      .then((data) => {
-        seats.value = data;
-
-        // Set seatsReady to true after the call completes.
-        seatsReady.value = true;
-      })
-      .catch((error) => handleApiError(error, apiError));
-
-    // Fetch teams for the dropdown
-    // Add console.log to see the team list
-    // getTeams()
-    //   .then((data) => {
-    //     console.log("Team List: ", data);
-    //     // convert Array[Team] to array name of teams
-    //     teamList.value = data.map((team) => team.slug);
-    //     // teamTagList.value = data.map((team) => team.slug);
-    //     console.log("Team List: ", teamList.value);
-    //   })
-    //   .catch((error) => handleApiError(error, apiError));
+    const store = useStore();
 
     // Fetch data for all teams once on mount
     onMounted(async () => {
       try {
-        // const teams = await getTeams();
-        // cloud_transfer_reviewers | neo-ap | rci-mfv
-        // Create a list of team names for the dropdown
-        // team
-        // teamList.value = teams.map((team) => team.slug);
-        // teamList.value = ["All Teams", "cloud_transfer_reviewers", "neo-ap", "rci-mfv"];
-        // teamList.value.unshift("All Teams");
-
-        // Add default "All Teams" entry with overall metrics
-        const allTeamsData: TeamMetrics = {
-          team_tag: "All Teams",
-          metrics: metrics.value,
-        };
-        teamMetrics.value.push(allTeamsData);
-
-        // Fetch team metrics for all teams
-        // Loop through the teamList and fetch metrics for each team
-        teamList.value.forEach(async (team) => {
-          if (team !== "All Teams") {
-            const metrics = await getTeamMetricsApi(team);
-            const members = await getTeamMembers(team);
-            console.log("Team members: ", members);
-            const teamData: MembersMetrics = {
-              team_tag: team,
-              metrics: metrics,
-              members: members,
-            };
-            teamMetrics.value.push(teamData);
-          }
-        });
-        teamMetricsReady.value = true;
+        await store.dispatch("CopilotUsage/fetchMetrics");
+        await store.dispatch("CopilotUsage/fetchSeats");
+        await store.dispatch("CopilotUsage/fetchAllTeamMetrics");
       } catch (error) {
-        handleApiError(error, apiError);
+        console.error(error);
       }
     });
-    // Reusable Error Handling
-    const handleApiError = (error: any, errorRef: any) => {
-      console.error(error);
-      if (error.response && error.response.status) {
-        switch (error.response.status) {
-          case 401:
-            errorRef.value =
-              "401 Unauthorized access - check if your token in the .env file is correct.";
-            break;
-          case 404:
-            errorRef.value = `404 Not Found - is the ${config.scope.type} '${config.scope.name}' correct?`;
-            break;
-          default:
-            errorRef.value = error.message;
-            break;
-        }
-      } else {
-        errorRef.value = error.message;
-      }
-      errorRef.value +=
-        " <br> If .env file is modified, restart the app for the changes to take effect.";
+
+    return {
+      store,
     };
-    return { metricsReady, metrics, seatsReady, seats, teamList, teamMetrics, teamMetricsReady, apiError };
   },
 });
 </script>

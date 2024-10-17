@@ -1,4 +1,3 @@
-import { createStore } from 'vuex';
 import GitHubService from '@/services/DoraService';
 
 const state = {
@@ -89,8 +88,9 @@ const actions = {
   },
 };
 
-export default createStore({
+export default {
+  namespaced: true,
   state,
   mutations,
   actions,
-});
+};

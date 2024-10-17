@@ -53,7 +53,6 @@ export class Members {
     if (Array.isArray(data)) {
       this.members = data.map((item: any) => new SimpleUser(item));
     } else if (typeof data === 'object' && data !== null) {
-      console.warn('Warning: Data is not an array, wrapping in an array', data);
       this.members = [new SimpleUser(data)];
     } else {
       console.error('Error: Invalid data type', data);

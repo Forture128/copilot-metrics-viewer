@@ -66,7 +66,7 @@ export default defineComponent({
     },
     setup() {
         const store = useStore();
-        const repositories = computed(() => store.state.repositories);
+        const repositories = computed(() => store.state.DoraData.repositories);
         const repositoriesNames = computed(() => repositories.value.map((repo: Repository) => repo.name));
         const selectedTimePeriod = ref<string>('Weekly');
         const timePeriods = ref<string[]>(['Weekly', 'Monthly', 'Yearly']);
@@ -81,13 +81,6 @@ export default defineComponent({
         const startDate = computed(() => date.value.start);
         const endDate = computed(() => date.value.end);
 
-        // const formattedDateRange = computed(() => {
-        //     const options = { year: 'numeric' as const, month: 'short' as const, day: 'numeric' as const };
-        //     const start = startDate.value.toLocaleDateString(undefined, options);
-        //     const end = endDate.value.toLocaleDateString(undefined, options);
-        //     return `${start} - ${end}`;
-        // });
-
         const metricAlert = ref(
             'Cycle Time needs focus. Deployment PRs are good. Work on reducing time to restore system functionality after incidents.'
         );
@@ -101,34 +94,33 @@ export default defineComponent({
             fetchData();
         });
         const fetchData = () => {
-            console.log('Fetching data for:', selectedRepo.value, startDate.value, endDate.value);
             const owner = config.github.org;
             const repo = selectedRepo.value ? selectedRepo.value : 'eslint-config-moneyforward';
             // Fetch deployments and their statuses
-            store.dispatch('fetchDeploymentsAndStatuses', { owner, repo });
-            store.dispatch('fetchPullRequests', { owner, repo });
+            store.dispatch('DoraData/fetchDeploymentsAndStatuses', { owner, repo });
+            store.dispatch('DoraData/fetchPullRequests', { owner, repo });
         };
 
         onMounted(() => {
-            store.dispatch('fetchRepositories').then(() => {
-                selectedRepo.value = repositories.value[0];
+            store.dispatch('DoraData/fetchRepositories').then(() => {
+                selectedRepo.value = repositories.value[0].name;
                 fetchData();
             });
         });
         const loadMoreRepositories = () => {
-            store.dispatch('loadMoreRepositories');
+            store.dispatch('DoraData/loadMoreRepositories');
         };
 
-        const deployments = computed(() => store.state.deployments || []);
+        const deployments = computed(() => store.state.DoraData.deployments || []);
         const deploymentFrequency = computed(() => {
             if (!deployments.value.length) return '0/week';
             const totalDeployments = deployments.value.length;
             const weeks = Math.max(1, (endDate.value.getTime() - startDate.value.getTime()) / (1000 * 60 * 60 * 24 * 7));
             return `${(totalDeployments / weeks).toFixed(2)}/week`;
         });
-        const pullRequests = computed(() => store.state.pullRequests || []);
-        const statuses = computed(() => store.state.status || []);
-        console.log('statuses:', statuses.value);
+        const pullRequests = computed(() => store.state.DoraData.pullRequests || []);
+        const statuses = computed(() => store.state.DoraData.statuses || []);
+        
 
         return {
             selectedTimePeriod, 
@@ -141,7 +133,6 @@ export default defineComponent({
             endDate,
             metricAlert,
             updateDates,
-            // formattedDateRange,
             deployments,
             deploymentFrequency,
             pullRequests,

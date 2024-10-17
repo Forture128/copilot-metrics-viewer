@@ -55,8 +55,6 @@ export default defineComponent({
         },
     },
     setup(props) {
-        console.log('DeploymentFrequencyCard props:', props.deploymentFrequency);
-        console.log('DeploymentFrequencyCard props:', props.deployments);
         const totalDeployments = computed(() => props.deployments.length);
         const deploymentFrequencyData = computed(() => {
             const labels = props.deployments.map(deployment => new Date(deployment.created_at).toLocaleDateString());

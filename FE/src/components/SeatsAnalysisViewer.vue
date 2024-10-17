@@ -3,91 +3,38 @@
     <!-- Dashboard Container for Metrics -->
     <v-container fluid class="dashboard-container">
       <v-row justify="center" align="center">
-        <!-- Total Assigned Card -->
-        <v-col cols="12" sm="6" md="4">
-          <v-card elevation="4" class="metric-card">
-            <v-card-item>
-              <div class="card-content">
-                <div class="metric-title">Total Assigned</div>
-                <div class="metric-subtitle">Currently assigned seats</div>
-                <p class="metric-value">{{ totalSeats.length }}</p>
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- Total Assigned Metric -->
+        <MetricCard title="Total Assigned" subtitle="Currently assigned seats" :value="totalSeats.length" />
 
-        <!-- Assigned But Never Used Card -->
-        <v-col cols="12" sm="6" md="4">
-          <v-card elevation="4" class="metric-card">
-            <v-card-item>
-              <div class="card-content">
-                <div class="metric-title">Assigned But Never Used</div>
-                <div class="metric-subtitle">No show seats</div>
-                <p class="metric-value">{{ NoshowSeats.length }}</p>
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- Assigned But Never Used Metric -->
+        <MetricCard title="Assigned But Never Used" subtitle="No show seats" :value="NoshowSeats.length" />
 
-        <!-- No Activity in the Last 7 days Card -->
-        <v-col cols="12" sm="6" md="4">
-          <v-card elevation="4" class="metric-card">
-            <v-card-item>
-              <div class="card-content">
-                <div class="metric-title">No Activity in the Last 7 Days</div>
-                <div class="metric-subtitle">No use in the last 7 days</div>
-                <p class="metric-value">{{ unusedSeats.length }}</p>
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- No Activity in the Last 7 Days Metric -->
+        <MetricCard title="No Activity in the Last 7 Days" subtitle="No use in the last 7 days"
+          :value="unusedSeats.length" />
 
-        <!-- Average Time to First Activity Card -->
-        <v-col cols="12" sm="6" md="4">
-          <v-card elevation="4" class="metric-card">
-            <v-card-item>
-              <div class="card-content">
-                <div class="metric-title">Avg Time to First Activity</div>
-                <div class="metric-subtitle">For seats with activity</div>
-                <p class="metric-value">{{ averageTimeToFirstActivity }}</p>
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- Average Time to First Activity Metric -->
+        <MetricCard title="Avg Time to First Activity" subtitle="For seats with activity"
+          :value="averageTimeToFirstActivity" />
       </v-row>
     </v-container>
 
-
-    <!-- Activity Recency Distribution and Average Time -->
-    <v-container fluid class="line-chart-container">
+    <!-- Charts Section -->
+    <v-container fluid class="charts-container">
       <v-row>
-        <v-col cols="12" md="6">
-          <v-card class="chart-card">
-            <v-card-item>
-              <Bar :data="recencyChartData" :options="recencyChartOptions" />
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- Seats Activity Recency Chart -->
+        <ChartCard title="Seats Activity Recency" :data="recencyChartData" :options="recencyChartOptions" :sm="12"
+          :md="6" :chart-type="'bar'" />
 
-        <v-col cols="12" md="6">
-          <v-card class="chart-card">
-            <v-card-item>
-              <Bar :data="recencyChartInactiveData" :options="recencyChartInactiveOptions" />
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <!-- Seats Inactivity Recency Chart -->
+        <ChartCard title="Seats Inactivity Recency" :data="recencyChartInactiveData"
+          :options="recencyChartInactiveOptions" :sm="12" :md="6" :chart-type="'bar'" />
       </v-row>
+
+      <!-- Seat Usage Over Time Chart -->
+      <FullWidthChart :data="chartData" :options="chartOptions" />
     </v-container>
 
-    <!-- Line Chart for Seat Usage -->
-    <v-container fluid class="line-chart-container">
-      <v-row justify="center">
-        <v-col cols="12" md="8">
-          <Line :data="chartData" :options="chartOptions" />
-        </v-col>
-      </v-row>
-    </v-container>
-    <!-- Filter Section -->
     <!-- Filter Section -->
     <v-container fluid>
       <v-row>
@@ -102,36 +49,38 @@
         </v-col>
       </v-row>
     </v-container>
+
     <!-- Detailed User Table -->
-    <v-container fluid class="seats-table-container">
-      <v-row>
-        <v-col cols="12">
-          <h2 class="text-center">All Assigned Seats</h2>
-          <v-card class="table-card">
-            <v-data-table :headers="headers" :items="filteredSeats" :items-per-page="10" class="elevation-2">
-              <template v-slot:item="{ item }">
-                <tr>
-                  <td>{{ item.login }}</td>
-                  <td>{{ item.id }}</td>
-                  <td>{{ item.team }}</td>
-                  <td>{{ item.created_at }}</td>
-                  <td>{{ item.last_activity_at }}</td>
-                  <td>{{ item.timeToFirstActivity ? item.timeToFirstActivity + ' days' : 'N/A' }}</td>
-                </tr>
-              </template>
-            </v-data-table>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
+    <v-row>
+      <v-col cols="12">
+        <h2 class="text-center">All Assigned Seats</h2>
+        <v-card class="table-card">
+          <v-data-table :headers="headers" :items="filteredSeats" :items-per-page="10"
+            class="elevation-2 table-container">
+            <template v-slot:item="{ item }">
+              <tr>
+                <td>{{ item.login }}</td>
+                <td>{{ item.id }}</td>
+                <td>{{ item.team }}</td>
+                <td>{{ item.created_at }}</td>
+                <td>{{ item.last_activity_at }}</td>
+                <td>{{ item.timeToFirstActivity ? item.timeToFirstActivity + ' days' : 'N/A' }}</td>
+              </tr>
+            </template>
+          </v-data-table>
+        </v-card>
+      </v-col>
+    </v-row>
   </div>
 </template>
 
 <script lang="ts">
 import { computed, defineComponent, ref, watchEffect } from 'vue';
-import { Bar, Line } from 'vue-chartjs';
 import { Seat } from '../model/Seat';
-import 'chartjs-adapter-date-fns'; // Required for date/time formatting
+import 'chartjs-adapter-date-fns';
+import FullWidthChart from './Commons/FullWidthChart.vue';
+import ChartCard from './Commons/ChartCard.vue';
+import MetricCard from './Commons/MetricCard.vue';
 
 import {
   Chart as ChartJS,
@@ -163,8 +112,9 @@ ChartJS.register(
 export default defineComponent({
   name: 'SeatsAnalysisViewer',
   components: {
-    Line,
-    Bar
+    FullWidthChart,
+    ChartCard,
+    MetricCard,
   },
   props: {
     seats: {
@@ -195,46 +145,26 @@ export default defineComponent({
 
     const activityStatus = ref('All');
     const recencyFilter = ref(null);
-    const selectedTeam = ref(teams[0]); // Default selected team. # FIXME: Update this based on the actual team data.
+    const selectedTeam = ref(teams[0]);
 
-
-    const chartData = ref<{ labels: string[]; datasets: any[] }>({
-      labels: [],
-      datasets: []
-    });
-
+    // Chart and data setup
+    const chartData = ref<{ labels: string[]; datasets: any[] }>({ labels: [], datasets: [] });
     const chartOptions = {
       responsive: true,
       plugins: {
-        legend: {
-          position: 'top' as const,
-        },
-        title: {
-          display: true,
-          text: 'Seats Usage Over Time',
-        },
+        legend: { position: 'top' as const },
+        title: { display: true, text: 'Seats Usage Over Time' },
       },
       scales: {
         x: {
           time: {
             unit: 'day',
             tooltipFormat: 'MMM dd, yyyy',
-            displayFormats: {
-              day: 'MMM d',
-            },
+            displayFormats: { day: 'MMM d' },
           },
-          title: {
-            display: true,
-            text: 'Date',
-          },
+          title: { display: true, text: 'Date' },
         },
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Seats Count',
-          },
-        },
+        y: { beginAtZero: true, title: { display: true, text: 'Seats Count' } },
       },
     };
 
@@ -247,8 +177,7 @@ export default defineComponent({
       { title: 'Last Activity Editor', key: 'last_activity_editor' }
     ];
 
-
-
+    // Helper functions (data processing, filtering)
     const updateChartData = () => {
       const seatCountsByDate: { [key: string]: number } = {};
       const unusedSeatCountsByDate: { [key: string]: number } = {};
@@ -257,7 +186,6 @@ export default defineComponent({
       const minDate = new Date(Math.min(...allDates.map(date => date.getTime())));
       const today = new Date();
 
-      // Calculate seat counts for each day from minDate to today
       for (let d = new Date(minDate); d <= today; d.setDate(d.getDate() + 1)) {
         const currentDate = new Date(d).toISOString().split('T')[0]; // Format date as YYYY-MM-DD
         seatCountsByDate[currentDate] = 0;
@@ -269,12 +197,9 @@ export default defineComponent({
             ? new Date(seat.last_activity_at).toISOString().split('T')[0]
             : null;
 
-          // Count total seats created before or on the current date
           if (createdDate <= currentDate) {
             seatCountsByDate[currentDate]++;
-
-            // Count unused seats if inactive for more than 7 days or never used
-            if (!lastActivityDate || (new Date(lastActivityDate) < new Date(currentDate) && (new Date(currentDate).getTime() - new Date(lastActivityDate).getTime()) > (7 * 24 * 60 * 60 * 1000))) {
+            if (!lastActivityDate || (new Date(currentDate).getTime() - new Date(lastActivityDate).getTime()) > (7 * 24 * 60 * 60 * 1000)) {
               unusedSeatCountsByDate[currentDate]++;
             }
           }
@@ -285,7 +210,6 @@ export default defineComponent({
       const totalSeatData = labels.map(date => seatCountsByDate[date]);
       const unusedSeatData = labels.map(date => unusedSeatCountsByDate[date]);
 
-      // Ensure that Unused Seats stacks on top of Total Seats
       chartData.value = {
         labels,
         datasets: [
@@ -307,69 +231,32 @@ export default defineComponent({
       };
     };
 
-    // START Activity Recency Distribution
-    const recencyChartData = ref<{ labels: string[]; datasets: any[] }>({
-      labels: [],
-      datasets: []
-    });
-    const recencyChartInactiveData = ref<{ labels: string[]; datasets: any[] }>({
-      labels: [],
-      datasets: []
-    });
+    // Recency chart data update
+    const recencyChartData = ref<{ labels: string[]; datasets: any[] }>({ labels: [], datasets: [] });
+    const recencyChartInactiveData = ref<{ labels: string[]; datasets: any[] }>({ labels: [], datasets: [] });
 
     const recencyChartOptions = {
       responsive: true,
       plugins: {
-        legend: {
-          display: false
-        },
-        title: {
-          display: true,
-          text: 'Seats Activity Recency'
-        }
+        legend: { display: false },
+        title: { display: true },
       },
       scales: {
-        x: {
-          title: {
-            display: true,
-            text: 'Recency'
-          }
-        },
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Number of Seats'
-          }
-        }
-      }
+        x: { title: { display: true, text: 'Recency' } },
+        y: { beginAtZero: true, title: { display: true, text: 'Number of Seats' } },
+      },
     };
+
     const recencyChartInactiveOptions = {
       responsive: true,
       plugins: {
-        legend: {
-          display: false
-        },
-        title: {
-          display: true,
-          text: 'Seats Inactivity Recency'
-        }
+        legend: { display: false },
+        title: { display: true },
       },
       scales: {
-        x: {
-          title: {
-            display: true,
-            text: 'Recency'
-          }
-        },
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Number of Seats'
-          }
-        }
-      }
+        x: { title: { display: true, text: 'Recency' } },
+        y: { beginAtZero: true, title: { display: true, text: 'Number of Seats' } },
+      },
     };
 
     const updateRecencyChartData = () => {
@@ -411,11 +298,6 @@ export default defineComponent({
         "> 30 Days": totalSeatsCount - activeCounts["> 30 Days"]
       };
 
-      inactiveSeats.value["Today"] = totalSeats.value.filter(seat => !activeSeats.value["Today"].includes(seat));
-      inactiveSeats.value["Last 7 Days"] = totalSeats.value.filter(seat => !activeSeats.value["Last 7 Days"].includes(seat));
-      inactiveSeats.value["Last 30 Days"] = totalSeats.value.filter(seat => !activeSeats.value["Last 30 Days"].includes(seat));
-      inactiveSeats.value["> 30 Days"] = totalSeats.value.filter(seat => !activeSeats.value["> 30 Days"].includes(seat));
-
       recencyChartData.value = {
         labels: ["> 30 Days", "Last 30 Days", "Last 7 Days", "Today"],
         datasets: [
@@ -442,13 +324,11 @@ export default defineComponent({
         ]
       };
 
-      console.log(activeSeats.value); // Log the activeSeats object for debugging
-      console.log(inactiveSeats.value); // Log the inactiveSeats object for debugging
     };
     // END Activity Recency Distribution
 
     // START Average Time to First Activity.
-    const averageTimeToFirstActivity = ref<string | null>(null);
+    const averageTimeToFirstActivity = ref<string | number>(0);
 
 
     const averageTimeChartOptions = {
@@ -516,7 +396,6 @@ export default defineComponent({
       averageTimeToFirstActivity.value = avgTimeToActivity.toFixed(2);
     };
 
-
     watchEffect(() => {
       if (props.seats && Array.isArray(props.seats)) {
         totalSeats.value = props.seats;
@@ -525,22 +404,13 @@ export default defineComponent({
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
         NoshowSeats.value = props.seats.filter(seat => seat.last_activity_at == null);
-
-        unusedSeats.value = totalSeats.value.filter(seat => {
-          if (seat.last_activity_at === null) {
-            return true;
-          }
-
-          const lastActivityDate = new Date(seat.last_activity_at);
-          return lastActivityDate < oneWeekAgo;
-        });
+        unusedSeats.value = totalSeats.value.filter(seat => !seat.last_activity_at || new Date(seat.last_activity_at) < oneWeekAgo);
 
         updateChartData();
         updateRecencyChartData();
         updateAverageTimeChart();
       }
     });
-
 
     // Filtered Seats based on user selection
     const filteredSeats = computed(() => {
@@ -624,7 +494,49 @@ export default defineComponent({
 }
 
 .table-container {
-  max-height: 500px;
+  max-height: 650px;
   overflow-y: auto;
+}
+
+.v-data-table {
+  font-size: 0.9rem;
+  border-radius: 12px;
+}
+
+.v-data-table>>>th {
+  font-weight: bold;
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+  font-size: 1.2rem;
+  padding: 12px;
+}
+
+.v-data-table>>>td {
+  padding: 10px;
+}
+
+.v-data-table>>>tr {
+  transition: background-color 0.3s ease;
+}
+
+.v-data-table>>>tr:hover {
+  background-color: #f0f8ff;
+  /* Light blue hover effect */
+}
+
+.text-right {
+  text-align: right;
+}
+
+.elevation-2 {
+  box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.1);
+}
+
+.v-data-footer {
+  padding-top: 10px;
+  /* Add some space for pagination */
 }
 </style>

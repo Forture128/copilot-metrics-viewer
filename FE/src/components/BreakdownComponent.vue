@@ -4,19 +4,8 @@
     <v-container fluid class="dashboard-container">
       <v-row justify="center" align="center">
         <!-- Breakdown Count Card -->
-        <v-col cols="12" sm="6" md="3">
-          <v-card elevation="4" class="metric-card">
-            <v-card-item>
-              <div class="card-content">
-                <div class="metric-title">
-                  Number of {{ breakdownDisplayNamePlural }}
-                </div>
-                <div class="metric-subtitle">Over the last 28 days</div>
-                <p class="metric-value">{{ numberOfBreakdowns }}</p>
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <MetricCard :title="`Number of ${breakdownDisplayNamePlural}`" subtitle="Over the last 28 days"
+          :value="numberOfBreakdowns" />
       </v-row>
     </v-container>
 
@@ -24,63 +13,31 @@
     <v-container fluid class="charts-container">
       <v-row>
         <!-- Top 5 by Accepted Prompts Chart -->
-        <v-col cols="12" md="6">
-          <v-card class="chart-card">
-            <v-card-item class="d-flex justify-center align-center">
-              <div class="text-h6 mb-1">
-                Top 5 {{ breakdownDisplayNamePlural }} by accepted prompts
-              </div>
-              <div class="chart-container">
-                <Pie :data="breakdownsChartDataTop5AcceptedPrompts" :options="chartOptions" />
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <ChartCard :title="'Top 5 ' + breakdownDisplayNamePlural + ' by accepted prompts'"
+          :data="breakdownsChartDataTop5AcceptedPrompts" :options="chartOptions" :sm="12" :md="6" :chart-type="'pie'" />
 
         <!-- Top 5 by Acceptance Rate Chart -->
-        <v-col cols="12" md="6">
-          <v-card class="chart-card">
-            <v-card-item class="d-flex justify-center align-center">
-              <div class="text-h6 mb-1">
-                Top 5 {{ breakdownDisplayNamePlural }} by acceptance rate
-              </div>
-              <div class="chart-container">
-                <Pie :data="breakdownsChartDataTop5AcceptanceRate" :options="chartOptions" />
-              </div>
-            </v-card-item>
-          </v-card>
-        </v-col>
+        <ChartCard :title="'Top 5 ' + breakdownDisplayNamePlural + ' by acceptance rate'"
+          :data="breakdownsChartDataTop5AcceptanceRate" :options="chartOptions" :sm="12" :md="6" :chart-type="'pie'" />
       </v-row>
-
-      <!-- <v-row>
-        <v-col cols="12">
-          <h3 class="text-center">
-            Total Suggestions Count | Total Acceptances Count | Acceptance Rate
-            (%)
-          </h3>
-          <v-card class="chart-card">
-            <PolarArea
-              :data="totalBreakdownsChartData"
-              :options="chartOptions"
-            />
-          </v-card>
-        </v-col>
-      </v-row> -->
 
       <!-- Breakdown Table -->
       <v-row>
         <v-col cols="12">
-          <h2 class="text-center">
-            {{ breakdownDisplayNamePlural }} Breakdown
-          </h2>
           <v-card class="chart-card">
-            <v-data-table :headers="headers" :items="Array.from(breakdowns)" class="elevation-2 table-container">
+            <v-card-title class="text-center">
+              {{ breakdownDisplayNamePlural }} Breakdown
+            </v-card-title>
+            <v-data-table :headers="headers" :items="Array.from(breakdowns)" class="elevation-2 table-container"
+              :items-per-page="10" :footer-props="{
+                'items-per-page-options': [5, 10, 20], // Add page size options
+              }" :sort-by="['acceptedPrompts']" :sort-desc="[true]">
               <template v-slot:item="{ item }">
                 <tr>
                   <td>{{ item[0] }}</td>
-                  <td>{{ item[1].acceptedPrompts }}</td>
-                  <td>{{ item[1].acceptedLinesOfCode }}</td>
-                  <td v-if="item[1].acceptanceRate !== undefined">
+                  <td class="text-right">{{ item[1].acceptedPrompts }}</td>
+                  <td class="text-right">{{ item[1].acceptedLinesOfCode }}</td>
+                  <td class="text-right" v-if="item[1].acceptanceRate !== undefined">
                     {{ item[1].acceptanceRate.toFixed(2) }}%
                   </td>
                 </tr>
@@ -92,14 +49,13 @@
     </v-container>
   </div>
 </template>
->
 
 <script lang="ts">
 import { defineComponent, ref, toRef } from "vue";
 import { Metrics } from "../model/Metrics";
 import { Breakdown } from "../model/Breakdown";
-import { Pie } from "vue-chartjs";
-
+import ChartCard from "./Commons/ChartCard.vue";
+import MetricCard from "./Commons/MetricCard.vue";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -140,7 +96,9 @@ export default defineComponent({
     },
   },
   components: {
-    Pie,
+    ChartCard,
+    MetricCard
+
   },
   computed: {
     breakdownDisplayName() {
@@ -154,9 +112,9 @@ export default defineComponent({
     headers() {
       return [
         { title: `${this.breakdownDisplayName} Name`, key: "breakdownName" },
-        { title: "Accepted Prompts", key: "acceptedPrompts" },
-        { title: "Accepted Lines of Code", key: "acceptedLinesOfCode" },
-        { title: "Acceptance Rate (%)", key: "acceptanceRate" },
+        { title: "Accepted Prompts", key: "acceptedPrompts", align: "end" },
+        { title: "Accepted Lines of Code", key: "acceptedLinesOfCode", align: "end" },
+        { title: "Acceptance Rate (%)", key: "acceptanceRate", align: "end" },
       ];
     },
   },
@@ -233,12 +191,12 @@ export default defineComponent({
       })
     );
 
-    //Sort breakdowns map by acceptance rate
-    breakdowns.value[Symbol.iterator] = function* () {
-      yield* [...this.entries()].sort(
-        (a, b) => b[1].acceptanceRate - a[1].acceptanceRate
-      );
-    };
+    // //Sort breakdowns map by acceptance rate
+    // const sortedBreakdownsByAcceptanceRate = new Map(
+    //   Array.from(breakdowns.value.entries()).sort(
+    //     (a, b) => b[1].acceptanceRate - a[1].acceptanceRate
+    //   )
+    // );
 
     // Get the top 5 breakdowns by acceptance rate
     const top5BreakdownsAcceptanceRate = new Map(
@@ -259,12 +217,12 @@ export default defineComponent({
       ],
     };
 
-    //Sort breakdowns map by accepted prompts
-    breakdowns.value[Symbol.iterator] = function* () {
-      yield* [...this.entries()].sort(
-        (a, b) => b[1].acceptedPrompts - a[1].acceptedPrompts
-      );
-    };
+    // //Sort breakdowns map by accepted prompts
+    // const sortedBreakdownsByAcceptedPrompts = new Map(
+    //   Array.from(breakdowns.value.entries()).sort(
+    //     (a, b) => b[1].acceptedPrompts - a[1].acceptedPrompts
+    //   )
+    // );
 
     breakdownsChartData.value = {
       labels: Array.from(breakdowns.value.values()).map(
@@ -329,3 +287,53 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped>
+.table-container {
+  max-height: 650px;
+  overflow-y: auto;
+}
+
+.v-data-table {
+  font-size: 0.9rem;
+  border-radius: 12px;
+}
+
+.v-data-table :deep(th) {
+  font-weight: bold;
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+  font-size: 1.2rem;
+  padding: 12px;
+}
+
+
+.v-data-table td {
+  padding: 10px;
+}
+
+.v-data-table tr {
+  transition: background-color 0.3s ease;
+}
+
+.v-data-table tr:hover {
+  background-color: #f0f8ff;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.elevation-2 {
+  .elevation-2 {
+    box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.v-data-footer {
+  padding-top: 10px;
+}
+</style>

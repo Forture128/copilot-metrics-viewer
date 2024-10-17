@@ -118,8 +118,6 @@ export default defineComponent({
           pickupTimes.push(calculateTimeDifferenceInDays(reviews.first_review_at, reviews.review_completed_at));
           reviewTimes.push(calculateTimeDifferenceInDays(reviews.review_completed_at, reviews.approved_at));
           mergeTimes.push(calculateTimeDifferenceInDays(reviews.approved_at, pr.merged_at));
-          // Investigate review time and merge time
-          console.log(`${reviews.review_completed_at} - ${pr.approved_at} = ${calculateTimeDifferenceInDays(reviews.review_completed_at, reviews.approved_at)} `);
         }
       }
 
