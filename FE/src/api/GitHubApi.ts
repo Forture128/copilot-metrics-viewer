@@ -4,137 +4,128 @@
 //Also add X-GitHub-Api-Version: 2022-11-28 header
 //Return the response from the API
 
-import axios from "axios";
+import axios from 'axios'
 
-import { Metrics } from "../model/Metrics";
-import organizationMockedResponse from '../assets/organization_response_sample.json';
-import enterpriseMockedResponse from '../assets/enterprise_response_sample.json';
-import teamMockedResponse from '../assets/teams_response.json';
-import config from '../config';
-import { Team } from "@/model/Teams";
-import { Members } from "@/model/Members";
+import { Metrics } from '../model/Metrics'
+import organizationMockedResponse from '../assets/organization_response_sample.json'
+import enterpriseMockedResponse from '../assets/enterprise_response_sample.json'
+import teamMockedResponse from '../assets/teams_response.json'
+import config from '../config'
+import { Team } from '@/model/Teams'
+import { Members } from '@/model/Members'
 
 export const getMetricsApi = async (): Promise<Metrics[]> => {
-
-  let response;
-  let metricsData;
-  console.log("Config ", config);
+  let response
+  let metricsData
+  console.log('Config ', config)
 
   if (config.mockedData) {
-    console.log("Using mock data. Check VUE_APP_MOCKED_DATA variable.");
-    response = config.scope.type === "organization" ? organizationMockedResponse : enterpriseMockedResponse;
-    metricsData = response.map((item: any) => new Metrics(item));
+    console.log('Using mock data. Check VUE_APP_MOCKED_DATA variable.')
+    response =
+      config.scope.type === 'organization' ? organizationMockedResponse : enterpriseMockedResponse
+    metricsData = response.map((item: any) => new Metrics(item))
   } else {
-    response = await axios.get(
-      `${config.github.apiUrl}/copilot/usage`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${config.github.token}`,
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+    response = await axios.get(`${config.github.apiUrl}/copilot/usage`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${config.github.token}`,
+        'X-GitHub-Api-Version': '2022-11-28'
       }
-    );
+    })
 
-
-    metricsData = response.data.map((item: any) => new Metrics(item));
+    metricsData = response.data.map((item: any) => new Metrics(item))
   }
-  return metricsData;
-};
+  return metricsData
+}
 
 export const getTeams = async (): Promise<Team[]> => {
   console
-  let response;
-  let teamData;
+  let response
+  let teamData
 
   // If config mockdata is enabled, return a mocked response
   if (config.mockedData) {
-    response = teamMockedResponse;
+    response = teamMockedResponse
     // map with Team object
-    teamData = response.map((item: any) => new Team(item));
+    teamData = response.map((item: any) => new Team(item))
   } else {
     response = await axios.get(`${config.github.apiUrl}/teams`, {
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${config.github.token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
-    teamData = response.data.map((item: any) => new Team(item));
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    })
+    teamData = response.data.map((item: any) => new Team(item))
   }
-  return teamData;
+  return teamData
 }
 
 export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> => {
-  let response;
-  let metricsData;
+  let response
+  let metricsData
 
   if (config.mockedData) {
-    response = config.scope.type === "organization" ? organizationMockedResponse : enterpriseMockedResponse;
-    metricsData = response.map((item: any) => new Metrics(item));
+    response =
+      config.scope.type === 'organization' ? organizationMockedResponse : enterpriseMockedResponse
+    metricsData = response.map((item: any) => new Metrics(item))
   } else {
     try {
-      response = await axios.get(
-        `${config.github.apiUrl}/team/${team_tag}/copilot/usage`,
-        {
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${config.github.token}`,
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+      response = await axios.get(`${config.github.apiUrl}/team/${team_tag}/copilot/usage`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${config.github.token}`,
+          'X-GitHub-Api-Version': '2022-11-28'
         }
-      );
+      })
 
       if (response.status === 200) {
-        metricsData = response.data.map((item: any) => new Metrics(item));
+        metricsData = response.data.map((item: any) => new Metrics(item))
       } else {
-        console.error(`Error: Received status code ${response.status}`);
-        metricsData = [];
+        console.error(`Error: Received status code ${response.status}`)
+        metricsData = []
       }
     } catch (error) {
-      console.error('Error fetching team metrics:', error);
-      metricsData = [];
+      console.error('Error fetching team metrics:', error)
+      metricsData = []
     }
   }
-  return metricsData;
-};
+  return metricsData
+}
 
 // Get the team members from the GitHub API
 export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
-  let response;
-  let membersData: Members[] = [];
+  let response
+  let membersData: Members[] = []
 
   if (config.mockedData) {
-    response = organizationMockedResponse;
-    membersData = response.map((item: any) => new Members(item));
+    response = organizationMockedResponse
+    membersData = response.map((item: any) => new Members(item))
   } else {
     try {
-      response = await axios.get(
-        `${config.github.apiUrl}/teams/${team_tag}/members`,
-        {
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${config.github.token}`,
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+      response = await axios.get(`${config.github.apiUrl}/teams/${team_tag}/members`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${config.github.token}`,
+          'X-GitHub-Api-Version': '2022-11-28'
         }
-      );
+      })
 
       if (response.status === 200) {
         if (Array.isArray(response.data)) {
-          membersData = response.data.map((item: any) => new Members(item));
+          membersData = response.data.map((item: any) => new Members(item))
         } else {
-          console.error('Error: Response data is not an array', response.data);
-          membersData = [];
+          console.error('Error: Response data is not an array', response.data)
+          membersData = []
         }
       } else {
-        console.error(`Error: Received status code ${response.status}`);
-        membersData = [];
+        console.error(`Error: Received status code ${response.status}`)
+        membersData = []
       }
     } catch (error) {
-      console.error('Error fetching team members:', error);
-      membersData = [];
+      console.error('Error fetching team members:', error)
+      membersData = []
     }
   }
-  return membersData;
-};
+  return membersData
+}

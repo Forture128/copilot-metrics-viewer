@@ -1,10 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import MainComponent from '../components/MainComponent.vue';
-import DoraDashboard from '../components/DoraDashboard.vue';
+import { createRouter, createWebHistory } from 'vue-router'
+import MainComponent from '../components/MainComponent.vue'
+import DoraDashboard from '../components/DoraDashboard.vue'
 
 /**
  * Defines the application routes.
- * 
+ *
  * @note
  * - The root path ('/') redirects to '/copilot-module'.
  * - The '/copilot-module' path loads the `MainComponent`.
@@ -13,25 +13,19 @@ import DoraDashboard from '../components/DoraDashboard.vue';
 const routes = [
   {
     path: '/',
-    component: MainComponent,
-    children: [
-      {
-        path: '',
-        name: 'Home',
-        component: MainComponent,
-      },
-      {
-        path: 'dora-dashboard',
-        name: 'DoraDashboard',
-        component: DoraDashboard,
-      },
-    ],
+    name: 'Home',
+    component: MainComponent
   },
-];
+  {
+    path: '/dora-dashboard',
+    name: 'DoraDashboard',
+    component: DoraDashboard
+  }
+]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
-});
+  routes
+})
 
-export default router;
+export default router
