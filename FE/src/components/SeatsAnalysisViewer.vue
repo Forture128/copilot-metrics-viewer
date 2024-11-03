@@ -567,7 +567,7 @@ export default defineComponent({
   border-radius: 12px;
 }
 
-.v-data-table >>> th {
+:deep(.v-data-table th) {
   font-weight: bold;
   background-color: #f5f5f5;
   position: sticky;
@@ -578,15 +578,15 @@ export default defineComponent({
   padding: 12px;
 }
 
-.v-data-table >>> td {
+:deep(.v-data-table td) {
   padding: 10px;
 }
 
-.v-data-table >>> tr {
+:deep(.v-data-table tr) {
   transition: background-color 0.3s ease;
 }
 
-.v-data-table >>> tr:hover {
+:deep(.v-data-table tr:hover) {
   background-color: #f0f8ff;
   /* Light blue hover effect */
 }
