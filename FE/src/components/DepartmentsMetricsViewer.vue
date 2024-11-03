@@ -6,7 +6,7 @@
         <CustomizeSelect
           v-model="selectedDepartment"
           class="w-full"
-          @update:model-value="updateDepartmentData"
+          @update:model-value="handleDepartmentChange"
         >
           <SelectTrigger>
             <SelectValue
@@ -24,11 +24,11 @@
       <DateRangePeriodSelector
         v-model="dateRange"
         v-model:selected-period="selectedPeriod"
-        @date-range-changed="updateDepartmentData(selectedDepartment)"
+        @date-range-changed="updateDepartmentData"
       />
     </div>
 
-    <!-- Dashboard Container for Metrics -->
+    <!-- Metrics Cards -->
     <div class="grid gap-4 grid-cols-12">
       <MetricCard
         title="Acceptance Rate Average"
@@ -64,20 +64,31 @@
       />
     </div>
 
-    <!-- Charts Section -->
-    <div class="space-y-6">
+    <!-- Chart Section with Sidebar -->
+    <div class="flex gap-6 min-h-[600px]">
+      <div class="w-72 shrink-0">
+        <MultiTeamSelect
+          v-model="selectedTeams"
+          :teams="availableTeams"
+          label="Teams"
+          @update:model-value="updateDepartmentData"
+        />
+      </div>
+
+      <!-- <div class="flex-1"> -->
       <FullWidthChart
         title="Team Acceptance Rates"
         description="Tracking the acceptance rates of teams"
         :data="teamAcceptanceRateChartData"
         :options="teamAcceptanceRateChartOptions"
       />
+      <!-- </div> -->
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import type { TeamMetrics } from '../model/Metrics'
 import type { ChartOptions } from 'chart.js'
 import { calculateTeamAcceptanceRate, calculateTeamCumulativeMetrics } from '@/utils/MetricUtils'
@@ -92,6 +103,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import MultiTeamSelect from './Commons/MultiTeamSelect.vue'
 
 export default defineComponent({
   name: 'DepartmentsMetricsViewer',
@@ -103,7 +115,8 @@ export default defineComponent({
     SelectContent,
     SelectItem,
     SelectTrigger,
-    SelectValue
+    SelectValue,
+    MultiTeamSelect
   },
   props: {
     teamMetrics: {
@@ -116,7 +129,26 @@ export default defineComponent({
     }
   },
   setup(props) {
-    const selectedDepartment = ref(Object.keys(props.departments)[0])
+    const selectedDepartment = ref('Department 1')
+    const selectedTeams = ref<{ id: string; name: string }[]>([])
+
+    // Compute available teams for the selected department
+    const availableTeams = computed(() => {
+      const departmentTeams = props.departments[selectedDepartment.value] || []
+      return departmentTeams.map(team => ({
+        id: team,
+        name: team
+      }))
+    })
+
+    // Initialize selected teams when department changes
+    const handleDepartmentChange = (department: string) => {
+      selectedDepartment.value = department
+      // Select all teams by default for the new department
+      selectedTeams.value = availableTeams.value
+      updateDepartmentData()
+    }
+
     const dateRange = ref({
       start: subMonths(new Date(), 1),
       end: new Date()
@@ -149,13 +181,13 @@ export default defineComponent({
       return Number((((currentValue - previousValue) / previousValue) * 100).toFixed(2))
     }
 
-    const updateDepartmentData = (department: string) => {
-      // Get teams for selected department
-      const departmentTeams = props.departments[department] || []
+    const updateDepartmentData = () => {
+      // Get selected team tags
+      const selectedTeamTags = selectedTeams.value.map(team => team.id)
 
-      // Filter teams by department
+      // Filter teams by department and selection
       const departmentTeamMetrics = props.teamMetrics.filter(team =>
-        departmentTeams.includes(team.team_tag)
+        selectedTeamTags.includes(team.team_tag)
       )
 
       // Filter metrics based on date range
@@ -253,12 +285,21 @@ export default defineComponent({
       }
     }
 
-    // Watch for changes in department selection and date range
+    // Call updateDepartmentData on component mount
+    onMounted(() => {
+      if (availableTeams.value.length) {
+        selectedTeams.value = availableTeams.value
+        updateDepartmentData()
+      }
+    })
+
+    // Watch for changes in selections
     watch(
-      [selectedDepartment, dateRange, selectedPeriod],
-      () => updateDepartmentData(selectedDepartment.value),
-      { immediate: true }
+      [selectedDepartment, selectedTeams, dateRange, selectedPeriod],
+      () => updateDepartmentData(),
+      { deep: true }
     )
+
     const teamAcceptanceRateChartOptions: ChartOptions<'bar' | 'line'> = {
       responsive: true,
       maintainAspectRatio: true,
@@ -341,7 +382,10 @@ export default defineComponent({
       locAcceptedTrend,
       teamAcceptanceRateChartData,
       teamAcceptanceRateChartOptions,
-      updateDepartmentData
+      updateDepartmentData,
+      selectedTeams,
+      availableTeams,
+      handleDepartmentChange
     }
   }
 })
