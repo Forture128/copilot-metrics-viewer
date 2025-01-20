@@ -32,17 +32,21 @@ export const calculateCumulativeMetrics = (metrics: Metrics[]) => {
   let cumulativeNumberSuggestions = 0
   let cumulativeNumberAcceptances = 0
   let cumulativeNumberLOCAccepted = 0
-
+  let acceptanceRateAverage = 0
   metrics.forEach(m => {
     cumulativeNumberSuggestions += m.total_suggestions_count
     cumulativeNumberAcceptances += m.total_acceptances_count
     cumulativeNumberLOCAccepted += m.total_lines_accepted
   })
 
+  acceptanceRateAverage = (cumulativeNumberAcceptances / cumulativeNumberSuggestions) * 100
+  if (isNaN(acceptanceRateAverage)) {
+    acceptanceRateAverage = 0
+  }
   return {
     cumulativeNumberSuggestions,
     cumulativeNumberAcceptances,
     cumulativeNumberLOCAccepted,
-    acceptanceRateAverage: (cumulativeNumberAcceptances / cumulativeNumberSuggestions) * 100
+    acceptanceRateAverage
   }
 }

@@ -257,21 +257,16 @@ export default defineComponent({
         labels: sortedTeams.map(team => team.team_tag),
         datasets: [
           {
-            label: 'Acceptance Rate',
-            data: sortedTeams.map(team => team.acceptanceRate),
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgb(54, 162, 235)',
-            fill: false,
-            type: 'line',
-            yAxisID: 'y1'
-          },
-          {
             label: 'Total Suggestions',
             data: sortedTeams.map(team => team.totalSuggestion),
             backgroundColor: 'rgba(75, 192, 192, 0.6)',
             borderColor: 'rgb(75, 192, 192)',
             type: 'bar',
-            yAxisID: 'y'
+            yAxisID: 'y',
+            order: 1,
+            barPercentage: 0.8,
+            categoryPercentage: 0.9,
+            stack: 'stack0'
           },
           {
             label: 'Total Acceptances',
@@ -279,7 +274,22 @@ export default defineComponent({
             backgroundColor: 'rgba(255, 99, 132, 0.6)',
             borderColor: 'rgb(255, 99, 132)',
             type: 'bar',
-            yAxisID: 'y'
+            yAxisID: 'y',
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.9,
+            stack: 'stack0'
+          },
+          {
+            label: 'Acceptance Rate',
+            data: sortedTeams.map(team => team.acceptanceRate),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgb(54, 162, 235)',
+            fill: false,
+            type: 'line',
+            yAxisID: 'y1',
+            order: 0,
+            pointHoverRadius: 10
           }
         ]
       }
@@ -303,6 +313,10 @@ export default defineComponent({
     const teamAcceptanceRateChartOptions: ChartOptions<'bar' | 'line'> = {
       responsive: true,
       maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
       scales: {
         y: {
           beginAtZero: true,
@@ -314,7 +328,7 @@ export default defineComponent({
             text: 'Suggested / Accepted'
           },
           grid: {
-            display: false // Remove y-axis grid lines
+            drawOnChartArea: true
           }
         },
         y1: {
@@ -330,43 +344,51 @@ export default defineComponent({
             text: 'Acceptance Rate (%)'
           },
           grid: {
-            display: false // Remove y1-axis grid lines
+            drawOnChartArea: false
           }
         },
         x: {
-          type: 'category',
-          ticks: {
-            autoSkip: true,
-            maxTicksLimit: 10
+          grid: {
+            display: false
+          }
+        }
+      },
+      elements: {
+        point: {
+          radius: 3,
+          hoverRadius: 5,
+          hitRadius: 3
+        },
+        line: {
+          tension: 0.3
+        }
+      },
+      plugins: {
+        tooltip: {
+          enabled: true,
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function (context) {
+              const label = context.dataset.label || ''
+              const value = context.parsed.y
+
+              if (label) {
+                if (context.dataset.yAxisID === 'y1') {
+                  // For Acceptance Rate
+                  return `${label}: ${value.toFixed(3)}%`
+                }
+                // For Total Suggestions and Total Acceptances
+                return `${label}: ${value.toLocaleString()}`
+              }
+              return ''
+            }
           }
         }
       },
       layout: {
         padding: {
-          left: 50,
-          right: 50,
-          top: 50,
-          bottom: 50
-        }
-      },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              let label = context.dataset.label || ''
-              if (label) {
-                label += ': '
-              }
-              if (context.parsed.y !== null) {
-                if (context.dataset.yAxisID === 'y1') {
-                  label += context.parsed.y.toFixed(2) + '%'
-                } else {
-                  label += context.parsed.y
-                }
-              }
-              return label
-            }
-          }
+          top: 50
         }
       }
     }

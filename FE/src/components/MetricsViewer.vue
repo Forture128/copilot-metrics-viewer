@@ -144,6 +144,14 @@ export default defineComponent({
           }
         }
       },
+      layout: {
+        padding: {
+          top: 50,
+          bottom: 50,
+          left: 50,
+          right: 50
+        }
+      },
       spanGaps: false,
       showLine: true
     }

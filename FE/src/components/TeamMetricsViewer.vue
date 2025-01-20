@@ -8,7 +8,7 @@
             <SelectValue :placeholder="selectedTeam ? selectedTeam : 'Select Team'" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="team in teams" :key="team.toString()" :value="team.toString()">
+            <SelectItem v-for="team in uniqueTeams" :key="team" :value="team">
               {{ team }}
             </SelectItem>
           </SelectContent>
@@ -57,7 +57,7 @@
         description="6.7% increase in chat usage"
       /> -->
       <MetricCard
-        title="Chat Acceptances"
+        title="Chat Users Acceptances"
         :subtitle="`For ${selectedTeam}`"
         :value="teamMetrics.totalChatAcceptances"
         icon="mdi-checkbox-marked-circle-outline"
@@ -66,55 +66,33 @@
       />
     </div>
 
-    <!-- Charts Section -->
-    <div class="space-y-6">
-      <FullWidthChart
-        title="Suggestions and Acceptances Over Time"
-        description="Tracking the trend of suggestions and acceptances"
-        :data="suggestionsAcceptancesChartData"
-        :options="chartOptions"
-      />
+    <!-- Charts and Members Section -->
+    <div class="grid gap-6 grid-cols-12">
+      <!-- Main charts section -->
+      <div class="col-span-8 space-y-6">
+        <FullWidthChart
+          title="Suggestions & Acceptances"
+          :data="suggestionsAcceptancesChartData"
+          :options="chartOptions"
+        />
+        <FullWidthChart
+          title="Lines Suggested vs Accepted"
+          :data="linesSuggestedAcceptedChartData"
+          :options="chartOptions"
+        />
+      </div>
 
-      <FullWidthChart
-        title="Lines Suggested vs Accepted Over Time"
-        description="Comparison of suggested and accepted lines of code"
-        :data="linesSuggestedAcceptedChartData"
-        :options="chartOptions"
-      />
-
-      <!-- <FullWidthChart
-        title="Chat Turns and Acceptances Over Time"
-        description="Analysis of chat interactions and acceptance rates"
-        :data="chatTurnsAcceptancesChartData"
-        :options="chartOptions"
-      /> -->
+      <!-- Team members section -->
+      <div class="col-span-4 space-y-6">
+        <TeamMembersSection :members="teamMembers" />
+      </div>
     </div>
-
-    <!-- <div class="space-y-6">
-      <h2 class="text-2xl font-bold text-center">
-        Breakdown by Language
-      </h2>
-      <TeamBreakdownComponent 
-        :key="`lang-${filteredMetricsKey}`" 
-        :metrics="filteredMetrics" 
-        breakdown-key="language" 
-      />
-
-      <h2 class="text-2xl font-bold text-center">
-        Breakdown by Editor
-      </h2>
-      <TeamBreakdownComponent 
-        :key="`editor-${filteredMetricsKey}`" 
-        :metrics="filteredMetrics" 
-        breakdown-key="editor" 
-      />
-    </div> -->
   </div>
 </template>
 
 <script lang="ts">
 import { useToast } from 'vue-toastification'
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref, watch, computed } from 'vue'
 import type { ChartOptions, LineControllerChartOptions } from 'chart.js'
 import {
   Chart as ChartJS,
@@ -142,6 +120,8 @@ import {
 import { cn } from '@/lib/utils'
 import { subMonths, addDays, format } from 'date-fns'
 import DateRangePeriodSelector from '@/components/Commons/DateRangePeriodSelector.vue'
+import TeamMembersSection from './Commons/TeamMembersSection.vue'
+import type { Members } from '@/model/Members'
 
 ChartJS.register(
   CategoryScale,
@@ -166,7 +146,8 @@ export default defineComponent({
     SelectItem,
     SelectTrigger,
     SelectValue,
-    DateRangePeriodSelector
+    DateRangePeriodSelector,
+    TeamMembersSection
   },
   props: {
     teams: {
@@ -181,6 +162,7 @@ export default defineComponent({
   setup(props) {
     const toast = useToast()
     const selectedTeam = ref(props.teams[0])
+    const teamMembers = ref<Members[]>([])
     const filteredMetrics = ref<any[]>([])
     const filteredMetricsKey = ref(0)
     const teamMetrics = ref({
@@ -216,6 +198,33 @@ export default defineComponent({
     const chartOptions: ChartOptions<'line'> & LineControllerChartOptions = {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        tooltip: {
+          enabled: true,
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function (context) {
+              const label = context.dataset.label || ''
+              const value = context.parsed.y
+
+              if (label) {
+                if (label === 'Acceptance Rate') {
+                  return `${label}: ${value.toFixed(3)}%`
+                }
+
+                return `${label}: ${value.toLocaleString()}`
+              }
+
+              return ''
+            }
+          }
+        }
+      },
       scales: {
         // Primary Y-axis for Total Lines Suggested and Accepted
         y: {
@@ -252,10 +261,7 @@ export default defineComponent({
       },
       layout: {
         padding: {
-          left: 50,
-          right: 50,
-          top: 50,
-          bottom: 50
+          top: 50
         }
       },
       spanGaps: false,
@@ -323,6 +329,7 @@ export default defineComponent({
     const updateTeamData = (team: string) => {
       selectedTeam.value = team
       const teamData = props.metrics.find((m: TeamMetrics) => m.team_tag === team)
+      teamMembers.value = teamData ? teamData.members : []
 
       // Filter metrics by date range
       filteredMetrics.value = teamData
@@ -433,20 +440,31 @@ export default defineComponent({
         labels: filteredMetrics.map((m: any) => m.day),
         datasets: [
           {
-            label: 'Suggestions',
-            data: filteredMetrics.map((m: any) => m.total_suggestions_count),
+            label: 'Total Suggestions',
+            data: filteredMetrics.map((m: any) => ({
+              x: m.day,
+              y: m.total_suggestions_count || 0
+            })),
             backgroundColor: 'rgba(75, 192, 192, 0.6)',
             borderColor: 'rgb(75, 192, 192)',
             type: 'bar',
-            yAxisID: 'y'
+            yAxisID: 'y',
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.9,
+            base: 0
           },
           {
             label: 'Acceptances',
-            data: filteredMetrics.map((m: any) => m.total_acceptances_count),
+            data: filteredMetrics.map((m: any) => ({
+              x: m.day,
+              y: m.total_acceptances_count || 0
+            })),
             backgroundColor: 'rgba(255, 99, 132, 0.6)',
             borderColor: 'rgb(255, 99, 132)',
             type: 'bar',
-            yAxisID: 'y'
+            yAxisID: 'y',
+            order: 1
           },
           {
             label: 'Acceptance Rate',
@@ -531,9 +549,14 @@ export default defineComponent({
       }
     }
 
+    const uniqueTeams = computed(() => {
+      return [...new Set(props.teams)]
+    })
+
     watch(selectedTeam, updateTeamData, { immediate: true })
 
     return {
+      teamMembers,
       selectedTeam,
       selectedPeriod,
       dateRange,
@@ -548,7 +571,8 @@ export default defineComponent({
       filteredMetrics,
       filteredMetricsKey,
       cn,
-      format
+      format,
+      uniqueTeams
     }
   }
 })

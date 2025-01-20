@@ -72,11 +72,11 @@
           <SeatsAnalysisViewer v-if="tab === 'seat analysis'" :seats="seats" />
           <ApiResponse v-if="tab === 'api response'" :metrics="metrics" :seats="seats" />
           <TeamMetricsViewer
-            v-if="tab === 'team metrics' && teamMetricsReady"
+            v-if="tab === 'teams' && teamMetricsReady"
             v-model:team="selectedTeam"
             :teams="teamList"
             :metrics="teamMetrics"
-            breakdown-key="team metrics"
+            breakdown-key="teams"
           />
           <DoraDashboard v-if="tab === 'dora dashboard'" />
         </div>
@@ -99,6 +99,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import {
   Github,
   Building,
+  Building2,
   Users,
   Code2,
   Edit3,
@@ -147,7 +148,7 @@ const mockedDataMessage = computed(() =>
 const tabItems = [
   itemName.value,
   'departments',
-  'team metrics'
+  'teams'
   // 'languages',
   // 'editors',
   // 'copilot chat',
@@ -163,8 +164,8 @@ tab.value = tabItems[0]
 const getIconComponent = (item: string) => {
   const icons: Record<string, any> = {
     organization: Building,
-    'team metrics': Users,
-    departments: Building,
+    teams: Users,
+    departments: Building2,
     languages: Code2,
     editors: Edit3,
     'copilot chat': MessageSquare,

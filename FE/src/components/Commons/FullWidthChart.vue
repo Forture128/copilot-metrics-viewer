@@ -1,9 +1,7 @@
 <template>
   <Card class="w-full transition-all hover:-translate-y-1 hover:shadow-lg">
     <CardContent>
-      <div class="p-6">
-        <component :is="chartComponent" :data="data" :options="chartOptions" />
-      </div>
+      <component :is="chartComponent" :data="data" :options="chartOptions" />
     </CardContent>
   </Card>
 </template>
@@ -46,9 +44,26 @@ const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: true,
   plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const
+    tooltip: {
+      enabled: true,
+      mode: 'index',
+      intersect: false,
+      callbacks: {
+        label: function (context: any) {
+          const label = context.dataset.label || ''
+          const value = context.parsed.y
+
+          if (label) {
+            if (label === 'Acceptance Rate' || label === 'Lines Acceptance Rate') {
+              return `${label}: ${value.toFixed(3)}%`
+            }
+
+            return `${label}: ${value.toLocaleString()}`
+          }
+
+          return ''
+        }
+      }
     },
     title: {
       display: !!props.title,

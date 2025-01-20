@@ -54,12 +54,12 @@ export class Metrics {
 
 export class TeamMetrics {
   team_tag: string
-  // members: Members[];
+  members: Members[]
   metrics: Metrics[]
 
   constructor(data: any) {
     this.team_tag = data.team_tag
-    // this.members = data.members.map((item: any) => new Members(item));
+    this.members = data.members.map((item: any) => new Members(item))
     this.metrics = data.metrics.map((item: any) => new Metrics(item))
   }
 }

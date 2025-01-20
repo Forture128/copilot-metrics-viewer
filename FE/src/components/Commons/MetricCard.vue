@@ -2,7 +2,8 @@
   <Card
     :class="[
       'col-span-12 sm:col-span-6 md:col-span-3',
-      'group transition-all hover:-translate-y-1 hover:shadow-lg'
+      'group transition-all hover:-translate-y-1 hover:shadow-lg',
+      'rounded-lg shadow-sm gradient-background'
     ]"
   >
     <CardHeader>
@@ -20,7 +21,9 @@
     <CardContent>
       <div class="space-y-1">
         <div class="flex items-center justify-between">
-          <span class="text-3xl font-bold tracking-tight">{{ formattedValue }}</span>
+          <span class="text-3xl font-bold tracking-tight text-emerald-500">{{
+            formattedValue
+          }}</span>
           <div
             v-if="trend"
             :class="[
@@ -90,3 +93,9 @@ const formattedValue = computed(() => {
   return props.value
 })
 </script>
+
+<style scoped>
+.gradient-background {
+  background: linear-gradient(145deg, #f5f7fa, #e6ebf0);
+}
+</style>
