@@ -1,103 +1,101 @@
 <template>
-    <v-col :cols="cols" :sm="sm" :md="md">
-      <v-card elevation="6" class="metric-card">
-        <v-card-item class="content-wrapper">
-          <div class="icon-container">
-            <v-icon v-if="icon" large>{{ icon }}</v-icon>
+  <Card
+    :class="[
+      'col-span-12 sm:col-span-6 md:col-span-3',
+      'group transition-all hover:-translate-y-1 hover:shadow-lg',
+      'rounded-lg shadow-sm gradient-background'
+    ]"
+  >
+    <CardHeader>
+      <div class="flex items-center justify-between space-x-4">
+        <CardTitle class="text-base font-semibold">
+          {{ title }}
+        </CardTitle>
+        <div v-if="icon" class="rounded-full p-2 bg-primary/10">
+          <component :is="getIconComponent(icon)" class="h-5 w-5 text-primary" />
+        </div>
+      </div>
+      <CardDescription>{{ subtitle }}</CardDescription>
+    </CardHeader>
+
+    <CardContent>
+      <div class="space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-3xl font-bold tracking-tight text-emerald-500">{{
+            formattedValue
+          }}</span>
+          <div
+            v-if="trend"
+            :class="[
+              'flex items-center gap-1 text-sm',
+              trend > 0 ? 'text-green-500' : 'text-red-500'
+            ]"
+          >
+            <component :is="trend > 0 ? TrendingUp : TrendingDown" class="h-4 w-4" />
+            {{ Math.abs(trend) }}%
           </div>
-          <div class="text-container">
-            <div class="metric-title">{{ title }}</div>
-            <div class="metric-subtitle">{{ subtitle }}</div>
-            <p class="metric-value">{{ value }}</p>
-          </div>
-        </v-card-item>
-      </v-card>
-    </v-col>
-  </template>
-  
-  <script lang="ts">
-  import { defineComponent } from "vue";
-  
-  export default defineComponent({
-    name: "MetricCard",
-    props: {
-      title: {
-        type: String,
-        required: true,
-      },
-      subtitle: {
-        type: String,
-        required: true,
-      },
-      value: {
-        type: [String, Number],
-        required: true,
-      },
-      cols: {
-        type: Number,
-        default: 12,
-      },
-      sm: {
-        type: Number,
-        default: 6,
-      },
-      md: {
-        type: Number,
-        default: 3,
-      },
-      icon: {
-        type: String,
-        default: "", // Optionally pass in an icon name from Material Design icons
-      },
-    },
-  });
-  </script>
-  
-  <style scoped>
-  .metric-card {
-    padding: 20px;
-    text-align: center;
-    border-radius: 12px;
-    background: linear-gradient(145deg, #f5f7fa, #e6ebf0); /* Soft gradient background */
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-    transition: all 0.3s ease-in-out; /* Smooth transitions */
+        </div>
+        <p v-if="description" class="text-sm text-muted-foreground">
+          {{ description }}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import {
+  ChartLine,
+  Lightbulb,
+  CheckCircle2,
+  Code2,
+  MessageSquare,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  type LucideIcon
+} from 'lucide-vue-next'
+
+interface Props {
+  title: string
+  subtitle: string
+  value: string | number
+  icon?: string
+  trend?: number // Optional trend percentage
+  description?: string // Optional description text
+}
+
+const props = defineProps<Props>()
+
+const getIconComponent = (iconName: string): LucideIcon => {
+  const icons: Record<string, LucideIcon> = {
+    'mdi-chart-areaspline': ChartLine,
+    'mdi-lightbulb-outline': Lightbulb,
+    'mdi-checkbox-marked-circle-outline': CheckCircle2,
+    'mdi-code-tags': Code2,
+    'mdi-message-text': MessageSquare,
+    'mdi-account-group': Users,
+    'mdi-account-multiple': Users,
+    'mdi-account-cancel': Users,
+    'mdi-account-clock': Users,
+    'mdi-clock-start': Clock
   }
-  
-  .metric-card:hover {
-    transform: translateY(-4px); /* Lift on hover */
-    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.15); /* Stronger shadow on hover */
+  return icons[iconName] || ChartLine
+}
+
+const formattedValue = computed(() => {
+  if (typeof props.value === 'number') {
+    return new Intl.NumberFormat().format(props.value)
   }
-  
-  .content-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .icon-container {
-    margin-right: 10px;
-    color: #42a5f5; /* Add color to the icon for more vibrancy */
-  }
-  
-  .text-container {
-    flex-grow: 1;
-  }
-  
-  .metric-title {
-    font-size: 18px;
-    font-weight: bold;
-    color: #2c3e50;
-  }
-  
-  .metric-subtitle {
-    font-size: 14px;
-    color: #7f8c8d;
-  }
-  
-  .metric-value {
-    font-size: 32px;
-    font-weight: bold;
-    color: #1abc9c;
-    margin-top: 10px;
-  }
-  </style>
+  return props.value
+})
+</script>
+
+<style scoped>
+.gradient-background {
+  background: linear-gradient(145deg, #f5f7fa, #e6ebf0);
+}
+</style>
