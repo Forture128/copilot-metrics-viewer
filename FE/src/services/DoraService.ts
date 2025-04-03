@@ -1,215 +1,228 @@
 import axios from 'axios'
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import router from '../router'
+import ToastService from './ToastService'
 import config from '../config'
+import store from '../store'
 
-const GitHubService = {
-  async getDeployments(owner: string, repo: string) {
-    let response
-    let deploymentsData
+// Extend AxiosRequestConfig to support our custom properties
+interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
+  mockData?: any
+  emptyResponse?: any
+}
 
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      deploymentsData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}/deployments`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
+/**
+ * DoraService - Service to communicate with the GitHub API for DORA metrics
+ * This service handles authentication, API requests and provides methods for all GitHub API endpoints
+ * needed for DevOps Research and Assessment (DORA) metrics.
+ */
+export class DoraService {
+  private axiosInstance: AxiosInstance
+  private baseUrl: string
+
+  constructor(baseUrl: string = config.github.baseUrl) {
+    this.baseUrl = baseUrl
+    this.axiosInstance = axios.create({
+      baseURL: this.baseUrl,
+      timeout: 30000 // 30 seconds timeout
+    })
+
+    // Add request interceptor to include auth token
+    this.axiosInstance.interceptors.request.use(
+      config => {
+        // Get token from Vuex store
+        const token = store.state.auth?.token
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
+        config.headers.Accept = 'application/vnd.github+json'
+        config.headers['X-GitHub-Api-Version'] = '2022-11-28'
+        return config
+      },
+      error => {
+        return Promise.reject(error)
+      }
+    )
+
+    // Add response interceptor for error handling
+    this.axiosInstance.interceptors.response.use(
+      response => response,
+      error => {
+        this.handleApiError(error)
+        return Promise.reject(error)
+      }
+    )
+  }
+
+  /**
+   * Handle API errors in a centralized way
+   */
+  private handleApiError(error: any): void {
+    if (error.response) {
+      // The request was made and the server responded with a status code outside 2xx range
+      const status = error.response.status
+      const message = error.response.data?.message || 'An error occurred'
+
+      switch (status) {
+        case 401:
+          // Check for token expiration specifically
+          if (message.includes('Bad credentials') || message.includes('Token expired')) {
+            ToastService.error('Your session has expired. Please login again.')
+            // Clear authentication data
+            store.dispatch('auth/logout')
+            // Redirect to login page
+            router.push('/login')
+          } else {
+            ToastService.error('Authentication failed. Please login again.')
           }
-        })
-
-        if (response.status === 200) {
-          deploymentsData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          deploymentsData = []
-        }
-      } catch (error) {
-        console.error('Error fetching deployments:', error)
-        deploymentsData = []
+          break
+        case 403:
+          ToastService.error('You do not have permission to perform this action.')
+          break
+        case 404:
+          ToastService.error('The requested resource was not found.')
+          break
+        case 422:
+          ToastService.error('Validation error. Please check your input.')
+          break
+        default:
+          ToastService.error(`Error: ${message}`)
       }
-    }
-    return deploymentsData
-  },
-
-  // Fetch Pull Requests for Lead Time for Changes
-  async getPullRequests(owner: string, repo: string, params: Record<string, any> = {}) {
-    let response
-    let pullRequestsData
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      pullRequestsData = [] // Replace with actual mocked data if available
+    } else if (error.request) {
+      // The request was made but no response was received
+      ToastService.error('No response from server. Please check your connection.')
     } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}/pulls`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          },
-          params
-        })
-
-        if (response.status === 200) {
-          pullRequestsData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          pullRequestsData = []
-        }
-      } catch (error) {
-        console.error('Error fetching pull requests:', error)
-        pullRequestsData = []
-      }
+      // Something happened in setting up the request
+      ToastService.error(`Request error: ${error.message}`)
     }
-    return pullRequestsData
-  },
+  }
 
-  // Fetch Deployment Statuses for Change Failure Rate
-  async getDeploymentStatuses(owner: string, repo: string, deploymentId: number) {
-    let response
-    let statusesData
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      statusesData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(
-          `${config.github.baseUrl}/repos/${owner}/${repo}/deployments/${deploymentId}/statuses`,
-          {
-            headers: {
-              Accept: 'application/vnd.github+json',
-              Authorization: `Bearer ${config.github.token}`,
-              'X-GitHub-Api-Version': '2022-11-28'
-            }
-          }
-        )
-
-        if (response.status === 200) {
-          statusesData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          statusesData = []
-        }
-      } catch (error) {
-        console.error('Error fetching deployment statuses:', error)
-        statusesData = []
-      }
+  /**
+   * Generic request method to handle all API calls
+   */
+  private async request<T>(config: ExtendedAxiosRequestConfig): Promise<T> {
+    // If mock data is enabled, check if we have a mock handler
+    if (config.url && config.method && config.mockData) {
+      return config.mockData as T
     }
-    return statusesData
-  },
 
-  // Fetch Commits for Lead Time for Changes
-  async getCommits(owner: string, repo: string) {
-    let response
-    let commitsData
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      commitsData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}/commits`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        })
-
-        if (response.status === 200) {
-          commitsData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          commitsData = []
-        }
-      } catch (error) {
-        console.error('Error fetching commits:', error)
-        commitsData = []
-      }
-    }
-    return commitsData
-  },
-
-  // Fetch Workflow Runs for Deployment Frequency
-  async getWorkflowRuns(owner: string, repo: string) {
-    let response
-    let workflowRunsData
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      workflowRunsData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}/actions/runs`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        })
-
-        if (response.status === 200) {
-          workflowRunsData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          workflowRunsData = []
-        }
-      } catch (error) {
-        console.error('Error fetching workflow runs:', error)
-        workflowRunsData = []
-      }
-    }
-    return workflowRunsData
-  },
-
-  // Fetch Issues for Mean Time to Restore (MTTR)
-  async getIssues(owner: string, repo: string) {
-    let response
-    let issuesData
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      issuesData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}/issues`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        })
-
-        if (response.status === 200) {
-          issuesData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          issuesData = []
-        }
-      } catch (error) {
-        console.error('Error fetching issues:', error)
-        issuesData = []
-      }
-    }
-    return issuesData
-  },
-
-  async getTimePullRequestReviews(owner: string, repo: string, pull_number: number) {
     try {
-      const response = await axios.get(
-        `${config.github.baseUrl}/repos/${owner}/${repo}/pulls/${pull_number}/reviews`,
-        {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`
-          }
-        }
-      )
+      const response: AxiosResponse<T> = await this.axiosInstance.request(config)
+      return response.data
+    } catch (error) {
+      console.error(`Error in ${config.method} request to ${config.url}:`, error)
+      // Let the interceptor handle the error display, but return empty data for the caller
+      return (config.emptyResponse || []) as T
+    }
+  }
 
-      const reviews = response.data
+  /**
+   * Get deployments for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   */
+  public async getDeployments(owner: string, repo: string): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/deployments`,
+      emptyResponse: []
+    })
+  }
+
+  /**
+   * Get pull requests for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param params Optional parameters (state, sort, direction, etc.)
+   */
+  public async getPullRequests(
+    owner: string,
+    repo: string,
+    params: Record<string, any> = {}
+  ): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/pulls`,
+      params,
+      emptyResponse: []
+    })
+  }
+
+  /**
+   * Get deployment statuses for a specific deployment
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param deploymentId Deployment ID
+   */
+  public async getDeploymentStatuses(
+    owner: string,
+    repo: string,
+    deploymentId: number
+  ): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/deployments/${deploymentId}/statuses`,
+      emptyResponse: []
+    })
+  }
+
+  /**
+   * Get commits for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   */
+  public async getCommits(owner: string, repo: string): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/commits`,
+      emptyResponse: []
+    })
+  }
+
+  /**
+   * Get workflow runs for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   */
+  public async getWorkflowRuns(owner: string, repo: string): Promise<any> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/actions/runs`,
+      emptyResponse: { workflow_runs: [] }
+    })
+  }
+
+  /**
+   * Get issues for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   */
+  public async getIssues(owner: string, repo: string): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}/issues`,
+      emptyResponse: []
+    })
+  }
+
+  /**
+   * Get pull request reviews
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param pull_number Pull request number
+   */
+  public async getTimePullRequestReviews(
+    owner: string,
+    repo: string,
+    pull_number: number
+  ): Promise<any> {
+    try {
+      const reviews = await this.request<any[]>({
+        method: 'GET',
+        url: `/repos/${owner}/${repo}/pulls/${pull_number}/reviews`,
+        emptyResponse: []
+      })
+
       if (reviews.length > 0) {
         const firstReview = reviews[0]
         const approvedReview = reviews.find(
@@ -225,78 +238,69 @@ const GitHubService = {
       }
       return null
     } catch (error) {
-      console.error('Error fetching PR reviews:', error)
+      console.error('Error processing PR reviews:', error)
       return null
     }
-  },
+  }
 
-  // Get repository information
-  async getRepository(owner: string, repo: string) {
-    let response
-    let repositoryData
+  /**
+   * Get repository information
+   * @param owner Repository owner
+   * @param repo Repository name
+   */
+  public async getRepository(owner: string, repo: string): Promise<any> {
+    return this.request({
+      method: 'GET',
+      url: `/repos/${owner}/${repo}`,
+      emptyResponse: {}
+    })
+  }
 
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      repositoryData = {} // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/repos/${owner}/${repo}`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        })
+  /**
+   * Get repositories for a specific owner
+   * @param owner Username or organization name
+   * @param page Page number for pagination
+   * @param perPage Items per page (default: 50)
+   * @param type Type of repositories to return (all, owner, member, etc)
+   */
+  public async getRepositoriesByOwner(
+    owner: string,
+    page = 1,
+    perPage = 50,
+    type = 'public'
+  ): Promise<any[]> {
+    // Determine if owner is user or org (simplified, you might need more logic)
+    return this.request({
+      method: 'GET',
+      url: `/orgs/${owner}/repos`,
+      params: {
+        type,
+        sort: 'updated',
+        per_page: perPage,
+        page
+      },
+      emptyResponse: []
+    })
+  }
 
-        if (response.status === 200) {
-          repositoryData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-          repositoryData = {}
-        }
-      } catch (error) {
-        console.error('Error fetching repository:', error)
-        repositoryData = {}
-      }
-    }
-    return repositoryData
-  },
-
-  // Get List repos
-  // Get List repos with sorting and pagination
-  async getRepositories(page = 1) {
-    let response
-    let reposData = []
-
-    if (config.mockedData) {
-      // Handle mocked data if necessary
-      reposData = [] // Replace with actual mocked data if available
-    } else {
-      try {
-        response = await axios.get(`${config.github.baseUrl}/user/repos`, {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          },
-          params: {
-            sort: 'updated',
-            per_page: 50,
-            page: page
-          }
-        })
-
-        if (response.status === 200) {
-          reposData = response.data
-        } else {
-          console.error(`Error: Received status code ${response.status}`)
-        }
-      } catch (error) {
-        console.error('Error fetching repos:', error)
-      }
-    }
-    return reposData
+  /**
+   * Get all public repositories or repositories for the authenticated user
+   * @param page Page number for pagination
+   * @param perPage Items per page (default: 50)
+   */
+  public async getRepositories(page = 1, perPage = 50): Promise<any[]> {
+    return this.request({
+      method: 'GET',
+      url: `/repositories`,
+      params: {
+        since: (page - 1) * perPage,
+        per_page: perPage
+      },
+      emptyResponse: []
+    })
   }
 }
 
-export default GitHubService
+// Create and export a singleton instance
+export const doraService = new DoraService()
+export default doraService

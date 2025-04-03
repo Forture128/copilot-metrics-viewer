@@ -3,9 +3,15 @@
     <!-- Team and Date Selection -->
     <div class="flex justify-between items-center mb-6">
       <div class="flex-1 max-w-xs">
-        <CustomizeSelect v-model="selectedTeam" class="w-full" @update:model-value="updateTeamData">
+        <CustomizeSelect
+          v-model="internalSelectedTeam"
+          class="w-full"
+          @update:model-value="updateTeamData"
+        >
           <SelectTrigger>
-            <SelectValue :placeholder="selectedTeam ? selectedTeam : 'Select Team'" />
+            <SelectValue
+              :placeholder="internalSelectedTeam ? internalSelectedTeam : 'Select Team'"
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="team in uniqueTeams" :key="team" :value="team">
@@ -18,15 +24,15 @@
       <DateRangePeriodSelector
         v-model="dateRange"
         v-model:selected-period="selectedPeriod"
-        @date-range-changed="updateTeamData(selectedTeam)"
+        @date-range-changed="updateTeamData(internalSelectedTeam)"
       />
     </div>
 
     <!-- Dashboard Container for Team Metrics -->
-    <div class="grid gap-4 grid-cols-12">
+    <div v-if="hasMetricsData" class="grid gap-4 grid-cols-12">
       <MetricCard
         title="Total Suggestions"
-        :subtitle="`For ${selectedTeam}`"
+        :subtitle="`For ${internalSelectedTeam}`"
         :value="teamMetrics.totalSuggestionsCount"
         icon="mdi-lightbulb-outline"
         :trend="teamMetrics.suggestionsTrend"
@@ -34,7 +40,7 @@
       />
       <MetricCard
         title="Total Acceptances"
-        :subtitle="`For ${selectedTeam}`"
+        :subtitle="`For ${internalSelectedTeam}`"
         :value="teamMetrics.totalAcceptancesCount"
         icon="mdi-checkbox-marked-circle-outline"
         :trend="teamMetrics.acceptancesTrend"
@@ -42,7 +48,7 @@
       />
       <MetricCard
         title="Active Users"
-        :subtitle="`For ${selectedTeam}`"
+        :subtitle="`For ${internalSelectedTeam}`"
         :value="teamMetrics.totalActiveUsers"
         icon="mdi-account-group"
         :trend="teamMetrics.activeUsersTrend"
@@ -50,7 +56,7 @@
       />
       <!-- <MetricCard
         title="Active Chat Users"
-        :subtitle="`For ${selectedTeam}`"
+        :subtitle="`For ${internalSelectedTeam}`"
         :value="teamMetrics.totalActiveChatUsers"
         icon="mdi-message-text"
         :trend="6.7"
@@ -58,7 +64,7 @@
       /> -->
       <MetricCard
         title="Chat Users Acceptances"
-        :subtitle="`For ${selectedTeam}`"
+        :subtitle="`For ${internalSelectedTeam}`"
         :value="teamMetrics.totalChatAcceptances"
         icon="mdi-checkbox-marked-circle-outline"
         :trend="teamMetrics.chatAcceptancesTrend"
@@ -66,10 +72,18 @@
       />
     </div>
 
+    <div v-else class="notification-banner warning">
+      <div class="notification-icon">⚠️</div>
+      <p class="notification-message">
+        No metrics data available for the selected team and date range. Team member information is
+        still displayed below.
+      </p>
+    </div>
+
     <!-- Charts and Members Section -->
     <div class="grid gap-6 grid-cols-12">
       <!-- Main charts section -->
-      <div class="col-span-8 space-y-6">
+      <div v-if="hasMetricsData" class="col-span-8 space-y-6">
         <FullWidthChart
           title="Suggestions & Acceptances"
           :data="suggestionsAcceptancesChartData"
@@ -82,8 +96,8 @@
         />
       </div>
 
-      <!-- Team members section -->
-      <div class="col-span-4 space-y-6">
+      <!-- Team members section - expanded when no metrics data -->
+      <div :class="hasMetricsData ? 'col-span-4' : 'col-span-12'" class="space-y-6">
         <TeamMembersSection :members="teamMembers" />
       </div>
     </div>
@@ -91,7 +105,7 @@
 </template>
 
 <script lang="ts">
-import { useToast } from 'vue-toastification'
+import ToastService from '@/services/ToastService'
 import { defineComponent, ref, watch, computed } from 'vue'
 import type { ChartOptions, LineControllerChartOptions } from 'chart.js'
 import {
@@ -157,11 +171,19 @@ export default defineComponent({
     metrics: {
       type: Array as () => TeamMetrics[],
       required: true
+    },
+    selectedTeam: {
+      type: String,
+      default: 'all'
+    },
+    selectedDepartment: {
+      type: String,
+      default: 'all'
     }
   },
   setup(props) {
-    const toast = useToast()
-    const selectedTeam = ref(props.teams[0])
+    // Rename to internalSelectedTeam to avoid conflict with props
+    const internalSelectedTeam = ref(props.selectedTeam || props.teams[0] || '')
     const teamMembers = ref<Members[]>([])
     const filteredMetrics = ref<any[]>([])
     const filteredMetricsKey = ref(0)
@@ -287,7 +309,7 @@ export default defineComponent({
       }
 
       if (dateRange.value.start > dateRange.value.end) {
-        toast.error('Start date cannot be after end date')
+        ToastService.error('Start date cannot be after end date')
         dateRange.value = {
           start: subMonths(new Date(), 1),
           end: new Date()
@@ -295,7 +317,7 @@ export default defineComponent({
         return
       }
 
-      updateTeamData(selectedTeam.value)
+      updateTeamData(internalSelectedTeam.value)
     }
 
     const updatePeriodData = (period: string) => {
@@ -323,25 +345,78 @@ export default defineComponent({
           break
       }
 
-      updateTeamData(selectedTeam.value)
+      updateTeamData(internalSelectedTeam.value)
     }
 
     const updateTeamData = (team: string) => {
-      selectedTeam.value = team
+      internalSelectedTeam.value = team
       const teamData = props.metrics.find((m: TeamMetrics) => m.team_tag === team)
+      console.log('[TeamMetricsViewer] Team data:', teamData)
+      // Always set team members even if metrics data fails
       teamMembers.value = teamData ? teamData.members : []
 
+      // Handle metrics data separately
+      if (!teamData || !teamData.metrics || teamData.metrics.length === 0) {
+        console.warn(`No metrics found for team: ${team}`)
+
+        // Reset chart data to empty to avoid UI breaks
+        suggestionsAcceptancesChartData.value = { labels: [], datasets: [] }
+        linesSuggestedAcceptedChartData.value = { labels: [], datasets: [] }
+        chatTurnsAcceptancesChartData.value = { labels: [], datasets: [] }
+
+        // Reset metrics data to zero values
+        teamMetrics.value = {
+          totalSuggestionsCount: 0,
+          totalAcceptancesCount: 0,
+          totalLinesSuggested: 0,
+          totalLinesAccepted: 0,
+          totalActiveUsers: 0,
+          totalChatAcceptances: 0,
+          totalChatTurns: 0,
+          totalActiveChatUsers: 0,
+          suggestionsTrend: 0,
+          acceptancesTrend: 0,
+          activeUsersTrend: 0,
+          chatAcceptancesTrend: 0
+        }
+
+        // Use our ToastService for logging instead
+        ToastService.warning(`No metrics found for ${team}. Team member data is still available.`)
+        return
+      }
+
       // Filter metrics by date range
-      filteredMetrics.value = teamData
-        ? teamData.metrics.filter((m: any) => {
-            const date = new Date(m.day)
-            return date >= dateRange.value.start && date <= dateRange.value.end
-          })
-        : []
+      filteredMetrics.value = teamData.metrics.filter((m: any) => {
+        const date = new Date(m.day)
+        return date >= dateRange.value.start && date <= dateRange.value.end
+      })
 
       if (filteredMetrics.value.length === 0) {
         console.warn(`No metrics found for team: ${team} in selected date range`)
-        toast.warning(`No metrics found for team-slug: ${team} in selected date range`)
+
+        // Reset chart data to empty to avoid UI breaks
+        suggestionsAcceptancesChartData.value = { labels: [], datasets: [] }
+        linesSuggestedAcceptedChartData.value = { labels: [], datasets: [] }
+        chatTurnsAcceptancesChartData.value = { labels: [], datasets: [] }
+
+        // Reset metrics data to zero values
+        teamMetrics.value = {
+          totalSuggestionsCount: 0,
+          totalAcceptancesCount: 0,
+          totalLinesSuggested: 0,
+          totalLinesAccepted: 0,
+          totalActiveUsers: 0,
+          totalChatAcceptances: 0,
+          totalChatTurns: 0,
+          totalActiveChatUsers: 0,
+          suggestionsTrend: 0,
+          acceptancesTrend: 0,
+          activeUsersTrend: 0,
+          chatAcceptancesTrend: 0
+        }
+
+        // Use our ToastService for logging instead
+        ToastService.warning(`No metrics found for ${team} in selected date range`)
         return
       }
 
@@ -553,11 +628,66 @@ export default defineComponent({
       return [...new Set(props.teams)]
     })
 
-    watch(selectedTeam, updateTeamData, { immediate: true })
+    // Add watches for props changes
+    watch(
+      () => props.selectedTeam,
+      newTeam => {
+        if (newTeam && newTeam !== internalSelectedTeam.value) {
+          console.log('[TeamMetricsViewer] Prop selectedTeam changed to:', newTeam)
+          internalSelectedTeam.value = newTeam
+          updateTeamData(newTeam)
+        }
+      }
+    )
+
+    watch(
+      () => props.selectedDepartment,
+      newDept => {
+        console.log('[TeamMetricsViewer] Prop selectedDepartment changed to:', newDept)
+        // This is mainly for logging, as the component doesn't directly use the department
+      }
+    )
+
+    watch(internalSelectedTeam, updateTeamData, { immediate: true })
+
+    // Add a function to handle department changes
+    watch(
+      () => props.selectedDepartment,
+      newDepartment => {
+        console.log('[TeamMetricsViewer] Department changed to:', newDepartment)
+        // When department changes, reset team selection to first team in the department or null
+        if (props.teams.length > 0) {
+          internalSelectedTeam.value = props.teams[0]
+          updateTeamData(props.teams[0])
+        } else {
+          internalSelectedTeam.value = ''
+          // Reset metrics if no teams available
+          teamMetrics.value = {
+            totalSuggestionsCount: 0,
+            totalAcceptancesCount: 0,
+            totalLinesSuggested: 0,
+            totalLinesAccepted: 0,
+            totalActiveUsers: 0,
+            totalChatAcceptances: 0,
+            totalChatTurns: 0,
+            totalActiveChatUsers: 0,
+            suggestionsTrend: 0,
+            acceptancesTrend: 0,
+            activeUsersTrend: 0,
+            chatAcceptancesTrend: 0
+          }
+        }
+      }
+    )
+
+    // Add a computed property to check if we have metrics data
+    const hasMetricsData = computed(() => {
+      return filteredMetrics.value && filteredMetrics.value.length > 0
+    })
 
     return {
       teamMembers,
-      selectedTeam,
+      internalSelectedTeam,
       selectedPeriod,
       dateRange,
       teamMetrics,
@@ -572,7 +702,8 @@ export default defineComponent({
       filteredMetricsKey,
       cn,
       format,
-      uniqueTeams
+      uniqueTeams,
+      hasMetricsData
     }
   }
 })
@@ -621,5 +752,29 @@ export default defineComponent({
 
 .chart-card {
   margin-bottom: 20px;
+}
+
+.notification-banner {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.notification-banner.warning {
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.notification-icon {
+  margin-right: 0.75rem;
+  font-size: 1rem;
+}
+
+.notification-message {
+  margin: 0;
 }
 </style>

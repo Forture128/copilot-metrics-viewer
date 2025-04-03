@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-horus-be}_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-horus-be}_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-horus-be}_api
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    volumes:
+      - ./environment:/app/environment
+    environment:
+      - APP_ENV=${APP_ENV}
+      - RUST_LOG=${RUST_LOG:-info}
+      - RUST_BACKTRACE=${RUST_BACKTRACE:-0}
+      - APP_SERVER__ADDRESS=0.0.0.0:3000
+      - APP_SERVER__WORKERS=${SERVER_WORKERS:-4}
+      - APP_DATABASE__URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@database:5432/${POSTGRES_DB:-app_db}
+      - APP_DATABASE__MAX_CONNECTIONS=${DB_MAX_CONNECTIONS:-5}
+      - APP_DATABASE__TIMEOUT_SECONDS=${DB_TIMEOUT_SECONDS:-30}
+      - APP_REDIS__URL=redis://redis:6379
+      - APP_REDIS__TIMEOUT_SECONDS=${REDIS_TIMEOUT_SECONDS:-30}
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-horus-be}_postgres_data
+  redis_data:
+    name: ${COMPOSE_PROJECT_NAME:-horus-be}_redis_data
+# networks:
+#   default:
+#     name: ${COMPOSE_PROJECT_NAME:-horus-be}_network

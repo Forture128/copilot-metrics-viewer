@@ -13,6 +13,43 @@ import teamMockedResponse from '../assets/teams_response.json'
 import config from '../config'
 import { Team } from '@/model/Teams'
 import { Members } from '@/model/Members'
+import store from '@/store' // Import the store to get auth token
+import ToastService from '@/services/ToastService'
+import router from '@/router'
+
+// Helper to get the current authentication token
+const getAuthToken = (): string => {
+  // Try to get token from Vuex store first
+  const storeToken = store.getters['auth/token']
+  if (storeToken) {
+    return storeToken
+  }
+
+  // Fall back to config token if available
+  return config.github.token || ''
+}
+
+// Helper to handle authentication errors
+const handleAuthError = async (error: any) => {
+  if (axios.isAxiosError(error) && error.response?.status === 401) {
+    console.error(
+      'Authentication error:',
+      error.response.data?.message || 'Token validation failed'
+    )
+
+    // Dispatch logout action
+    await store.dispatch('auth/handleTokenExpired')
+
+    // Redirect to login if not already there
+    if (router.currentRoute.value.path !== '/login') {
+      router.push('/login')
+    }
+
+    // Use ToastService instead of direct useToast call
+    ToastService.error('Your session has expired. Please login again.')
+  }
+  throw error
+}
 
 export const getMetricsApi = async (): Promise<Metrics[]> => {
   let response
@@ -25,23 +62,31 @@ export const getMetricsApi = async (): Promise<Metrics[]> => {
       config.scope.type === 'organization' ? organizationMockedResponse : enterpriseMockedResponse
     metricsData = response.map((item: any) => new Metrics(item))
   } else {
-    response = await axios.get(`${config.github.apiUrl}/copilot/usage`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${config.github.token}`,
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    })
+    try {
+      const token = getAuthToken()
+      console.log('Using authentication token:', token ? 'Token available' : 'No token available')
 
-    metricsData = response.data.map((item: any) => new Metrics(item))
+      response = await axios.get(`${config.github.apiUrl}/copilot/usage`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      })
+      console.log('Response ', response)
+      metricsData = response.data.map((item: any) => new Metrics(item))
+    } catch (error) {
+      await handleAuthError(error)
+      throw error
+    }
   }
   return metricsData
 }
 
 export const getTeams = async (): Promise<Team[]> => {
-  console
   let response
   let teamData
+  const token = getAuthToken()
 
   // If config mockdata is enabled, return a mocked response
   if (config.mockedData) {
@@ -49,14 +94,19 @@ export const getTeams = async (): Promise<Team[]> => {
     // map with Team object
     teamData = response.map((item: any) => new Team(item))
   } else {
-    response = await axios.get(`${config.github.apiUrl}/teams`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${config.github.token}`,
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    })
-    teamData = response.data.map((item: any) => new Team(item))
+    try {
+      response = await axios.get(`${config.github.apiUrl}/teams`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      })
+      teamData = response.data.map((item: any) => new Team(item))
+    } catch (error) {
+      await handleAuthError(error)
+      throw error
+    }
   }
   return teamData
 }
@@ -64,6 +114,7 @@ export const getTeams = async (): Promise<Team[]> => {
 export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> => {
   let response
   let metricsData
+  const token = getAuthToken()
 
   if (config.mockedData) {
     response =
@@ -71,10 +122,10 @@ export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> =>
     metricsData = response.map((item: any) => new Metrics(item))
   } else {
     try {
-      response = await axios.get(`${config.github.apiUrl}/team/${team_tag}/copilot/usage`, {
+      response = await axios.get(`${config.github.apiUrl}/team/${team_tag}/copilot/metrics`, {
         headers: {
           Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${config.github.token}`,
+          Authorization: `Bearer ${token}`,
           'X-GitHub-Api-Version': '2022-11-28'
         }
       })
@@ -86,6 +137,7 @@ export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> =>
         metricsData = []
       }
     } catch (error) {
+      await handleAuthError(error)
       console.error('Error fetching team metrics:', error)
       metricsData = []
     }
@@ -97,6 +149,7 @@ export const getTeamMetricsApi = async (team_tag: string): Promise<Metrics[]> =>
 export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
   let response
   let membersData: Members[] = []
+  const token = getAuthToken()
 
   if (config.mockedData) {
     response = organizationMockedResponse
@@ -106,7 +159,7 @@ export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
       response = await axios.get(`${config.github.apiUrl}/teams/${team_tag}/members`, {
         headers: {
           Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${config.github.token}`,
+          Authorization: `Bearer ${token}`,
           'X-GitHub-Api-Version': '2022-11-28'
         }
       })
@@ -123,6 +176,7 @@ export const getTeamMembers = async (team_tag: string): Promise<Members[]> => {
         membersData = []
       }
     } catch (error) {
+      await handleAuthError(error)
       console.error('Error fetching team members:', error)
       membersData = []
     }

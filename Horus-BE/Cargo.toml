@@ -1,0 +1,93 @@
+[package]
+name = "horus-be"
+version = "0.1.0"
+edition = "2021"
+
+# Development profile: fast compilation, good for development
+[profile.dev]
+opt-level = 0      # No optimizations
+debug = true       # Full debug info
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+
+# Release profile: optimized for production
+[profile.release]
+opt-level = 3      # All optimizations
+debug = false      # No debug info
+debug-assertions = false
+overflow-checks = false
+lto = true         # Link time optimization
+panic = 'abort'    # Smaller binary size
+incremental = false
+codegen-units = 1
+
+# Profile for testing: balance between speed and debugging
+[profile.test]
+opt-level = 1      # Basic optimizations
+debug = true       # Keep debug info for better test output
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+codegen-units = 256
+
+# Dependencies optimization
+[profile.dev.package."*"]
+opt-level = 2      # Optimize dependencies even in dev build
+
+[dependencies]
+actix-rt = "2.10.0"
+actix-web = "4.9.0"
+actix-cors = "0.7.0"  # Added CORS support
+dotenvy = "0.15.7"
+octocrab = "0.43.0" # Github API
+validator = { version = "0.16", features = ["derive"] }
+
+redis = { version = "0.28.1", features = ["tokio-comp", "json", "aio"] }
+anyhow = "1.0.80"
+thiserror = "1.0.57"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.137"
+tracing = "0.1.41"
+tracing-actix-web = "0.7.15"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "chrono"] }
+config = "0.15.6"
+num_cpus = "1.16.0"
+chrono = { version = "0.4.39", features = ["serde"] }
+tokio = { version = "1.43.0", features = ["full", "test-util"] }
+async-trait = "0.1.77"
+reqwest = "0.12.12"
+
+# Authentication
+argon2 = "0.5.3"
+jsonwebtoken = "9.2.0"
+
+# Database
+diesel = { version = "2.1.4", features = ["postgres", "chrono", "serde_json"] }
+diesel-async = { version = "0.4.1", features = ["postgres", "deadpool"] }
+diesel_migrations = { version = "2.1.0", features = ["postgres"] }
+deadpool = "0.10.0"
+futures = "0.3.31"
+deadpool-runtime = { version = "0.1.4", features = ["tokio_1"] }
+bytes = "1.9.0"
+mockall = "0.13.1"
+
+# API Documentation
+utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
+utoipa-swagger-ui = { version = "6.0.0", features = ["actix-web"] }
+actix-http = "3.9.0"
+
+# Add this line in the dependencies section
+actix-files = "0.6"
+
+[[bin]]
+name = "seed_admin"
+path = "scripts/seed_admin.rs"
+
+[dev-dependencies]
+tokio-test = "0.4.3"
+tokio = { version = "1.43.0", features = ["full", "macros", "test-util"] }

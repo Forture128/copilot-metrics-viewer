@@ -129,12 +129,10 @@ const metrics = computed(() => store.state.CopilotUsage.metrics)
 // const seatsReady = computed(() => store.state.CopilotUsage.seatsReady)
 const seats = computed(() => store.state.CopilotUsage.seats)
 const teamList = computed(() => store.state.CopilotUsage.teamList)
-console.log('Team List', teamList.value)
 const teamMetrics = computed(() => store.state.CopilotUsage.teamMetrics)
 const teamMetricsReady = computed(() => store.state.CopilotUsage.teamMetricsReady)
 const apiError = computed(() => store.state.CopilotUsage.apiError)
 const departments = computed(() => store.state.CopilotUsage.departments)
-console.log('Departments', departments.value)
 const itemName = computed(() => config.scope.type)
 const capitalizedItemName = computed(
   () => itemName.value.charAt(0).toUpperCase() + itemName.value.slice(1)
@@ -148,13 +146,13 @@ const mockedDataMessage = computed(() =>
 const tabItems = [
   itemName.value,
   'departments',
-  'teams'
-  // 'languages',
-  // 'editors',
-  // 'copilot chat',
-  // 'api response',
-  // 'seat analysis',
-  // 'dora dashboard',
+  'teams',
+  'languages',
+  'editors',
+  'copilot chat',
+  'api response',
+  'seat analysis',
+  'dora dashboard'
 ]
 
 // Set initial tab

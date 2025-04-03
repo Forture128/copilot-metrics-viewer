@@ -25,7 +25,7 @@ export const getSeatsApi = async (): Promise<Seat[]> => {
       response = await axios.get(`${config.github.apiUrl}/copilot/billing/seats`, {
         headers: {
           Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${config.github.token}`,
+
           'X-GitHub-Api-Version': '2022-11-28'
         },
         params: {
@@ -45,7 +45,7 @@ export const getSeatsApi = async (): Promise<Seat[]> => {
         response = await axios.get(`${config.github.apiUrl}/copilot/billing/seats`, {
           headers: {
             Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${config.github.token}`,
+
             'X-GitHub-Api-Version': '2022-11-28'
           },
           params: {

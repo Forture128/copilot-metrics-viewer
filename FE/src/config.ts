@@ -17,17 +17,18 @@ if (VALID_SCOPE.includes(env.VITE_APP_SCOPE)) {
 }
 
 let apiUrl: string
-const baseUrl = 'https://api.github.com'
+// const baseUrl = 'https://api.github.com'
+const baseUrl = 'http://localhost:3000/proxy'
 const githubOrgName = env.VITE_APP_GITHUB_ORG
 const githubEntName = env.VITE_APP_GITHUB_ENT
 
 let scopeName: string
 if (scopeType === 'organization') {
   scopeName = githubOrgName
-  apiUrl = `https://api.github.com/orgs/${githubOrgName}`
+  apiUrl = `${baseUrl}/orgs/${githubOrgName}`
 } else if (scopeType === 'enterprise') {
   scopeName = githubEntName
-  apiUrl = `https://api.github.com/enterprises/${githubEntName}`
+  apiUrl = `${baseUrl}/enterprises/${githubEntName}`
 } else {
   throw new Error(
     `Invalid VITE_APP_SCOPE value: ${env.VITE_APP_SCOPE}. Valid values: ${VALID_SCOPE.join(', ')}`
@@ -49,9 +50,9 @@ const config: Config = {
     baseUrl
   }
 }
-if (!config.mockedData && !config.github.token) {
-  throw new Error('VITE_APP_GITHUB_TOKEN environment variable must be set.')
-}
+// if (!config.mockedData && !config.github.token) {
+//   throw new Error('VITE_APP_GITHUB_TOKEN environment variable must be set.')
+// }
 export default config
 
 interface Config {

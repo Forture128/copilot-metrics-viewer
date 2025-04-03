@@ -1,0 +1,5 @@
+mod organization_config_repository;
+mod organization_repository;
+
+pub use organization_config_repository::OrganizationConfigRepository;
+pub use organization_repository::OrganizationRepository;

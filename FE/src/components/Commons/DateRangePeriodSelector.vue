@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useToast } from 'vue-toastification'
+import ToastService from '@/services/ToastService'
 import {
   Select as CustomizeSelect,
   SelectContent,
@@ -80,7 +80,6 @@ const emit = defineEmits<{
   dateRangeChanged: []
 }>()
 
-const toast = useToast()
 const dateRange = ref(props.modelValue)
 const selectedPeriodValue = ref(props.selectedPeriod)
 
@@ -88,7 +87,7 @@ const updateDateRange = () => {
   if (!dateRange.value.start || !dateRange.value.end) return
 
   if (dateRange.value.start > dateRange.value.end) {
-    toast.error('Start date cannot be after end date')
+    ToastService.error('Start date cannot be after end date')
     dateRange.value = {
       start: subMonths(new Date(), 1),
       end: new Date()

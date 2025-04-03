@@ -1,3 +1,110 @@
+# Copilot Metrics Viewer Frontend
+
+A Vue.js application for visualizing GitHub Copilot metrics and managing RBAC (Role-Based Access Control).
+
+## Project Overview
+
+This frontend application provides a user interface for:
+
+- Visualizing GitHub Copilot usage metrics across teams and organizations
+- Analyzing developer productivity and code quality metrics
+- Tracking DORA (DevOps Research and Assessment) metrics
+- Managing users, roles, and departments (RBAC)
+
+## Project Structure
+
+```
+src/
+├── assets/                # Static assets (images, fonts, etc.)
+├── components/            # Reusable UI components
+│   ├── common/            # Generic UI components (buttons, inputs, etc.)
+│   ├── dashboard/         # Dashboard-specific components
+│   │   └── dora/          # DORA metrics components
+│   │       ├── DoraDashboard.vue
+│   │       ├── CycleTimeCard.vue
+│   │       └── ...
+│   └── rbac/              # RBAC management components
+├── layouts/               # Layout components
+│   ├── AppLayout.vue      # Main application layout
+│   └── AuthLayout.vue     # Layout for authentication pages
+├── router/                # Vue Router configuration
+├── services/              # API and other services
+│   └── HorusService.ts    # Service for Horus API communication
+├── store/                 # Vuex store modules
+│   ├── auth.module.ts     # Authentication store module
+│   ├── CopilotUsage.ts    # Copilot usage store module
+│   ├── DoraData.ts        # DORA metrics store module
+│   └── index.ts           # Root store
+├── types/                 # TypeScript type definitions
+│   └── horus-api.types.ts # Type definitions for API responses
+└── views/                 # Page/screen components
+    ├── admin/             # Admin-specific views
+    ├── analysis/          # Data analysis views
+    ├── auth/              # Authentication-related views
+    │   └── LoginView.vue
+    ├── dashboard/         # Dashboard-related views
+    │   └── DashboardView.vue
+    ├── departments/       # Department management views
+    ├── metrics/           # Metrics-related views
+    │   ├── DoraMetricsView.vue
+    │   └── DeveloperMetricsView.vue
+    ├── organization/      # Organization management views
+    ├── rbac/              # RBAC management views
+    └── teams/             # Team management views
+```
+
+## Implementation Status
+
+### Completed Features
+
+- Authentication flow with login/logout functionality
+- Dashboard view with navigation to different metric pages
+- DORA metrics visualization components
+- Application layout and navigation structure
+- Type-safe API service for backend communication
+
+### In Progress
+
+- Developer metrics visualization
+- Organization and team views
+- RBAC management interface
+- Data analysis views
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 14.x or higher
+- npm 7.x or higher
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Serve with hot reload at localhost:8080
+npm run serve
+
+# Build for production
+npm run build
+```
+
+### Configuration
+
+The application can be configured via environment variables:
+
+- `VUE_APP_API_URL`: URL of the backend API
+- `VUE_APP_USE_MOCK_DATA`: Set to 'true' to use mock data instead of calling the API
+
+## Contributing
+
+1. Ensure you follow the established project structure
+2. Create feature branches from `develop`
+3. Use TypeScript for type safety
+4. Follow the Vue.js style guide
+5. Write unit tests for new components and services
+
 This application is designed to provide clear visualizations of various metrics related to GitHub Copilot for your GitHub Organization or Enterprise Account. It utilizes the [GitHub Copilot Metrics API](https://docs.github.com/en/enterprise-cloud@latest/rest/copilot/copilot-usage?apiVersion=2022-11-28) to gather the necessary data.
 
 ## Key Metrics
@@ -74,3 +181,6 @@ To set up the GitHub Copilot Metrics Viewer, follow these steps:
 
 The GitHub Copilot Metrics Viewer will be accessible at http://localhost:8080.
 
+---
+
+### New update with RBAC

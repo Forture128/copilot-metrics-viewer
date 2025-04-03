@@ -9,7 +9,11 @@ const state = {
   issues: [],
   statuses: [],
   deployments: [],
-  currentPage: 1
+  currentPage: 1,
+  isLoadingRepos: false,
+  hasMoreRepos: true,
+  owner: 'moneyforward',
+  perPage: 100
 }
 
 const mutations = {
@@ -42,10 +46,22 @@ const mutations = {
   },
   SET_CURRENT_PAGE(state: { currentPage: number }, page: number) {
     state.currentPage = page
+  },
+  SET_LOADING_REPOS(state: { isLoadingRepos: boolean }, isLoading: boolean) {
+    state.isLoadingRepos = isLoading
+  },
+  SET_HAS_MORE_REPOS(state: { hasMoreRepos: boolean }, hasMore: boolean) {
+    state.hasMoreRepos = hasMore
+  },
+  SET_OWNER(state: { owner: string | null }, owner: string | null) {
+    state.owner = owner
   }
 }
 
 const actions = {
+  /**
+   * Fetch repositories for the current page
+   */
   async fetchRepositories({
     commit,
     state
@@ -53,13 +69,107 @@ const actions = {
     commit: (mutation: string, payload: any) => void
     state: any
   }) {
-    const repositories = await GitHubService.getRepositories(state.currentPage)
-    if (state.currentPage === 1) {
-      commit('SET_REPOSITORIES', repositories)
-    } else {
-      commit('ADD_REPOSITORIES', repositories)
+    commit('SET_LOADING_REPOS', true)
+    try {
+      const repositories = await GitHubService.getRepositories(state.currentPage, state.perPage)
+
+      if (state.currentPage === 1) {
+        commit('SET_REPOSITORIES', repositories)
+      } else {
+        commit('ADD_REPOSITORIES', repositories)
+      }
+
+      // Check if we've reached the end
+      commit('SET_HAS_MORE_REPOS', repositories.length === state.perPage)
+    } catch (error) {
+      console.error('[DoraData] Error fetching repositories:', error)
+    } finally {
+      commit('SET_LOADING_REPOS', false)
     }
   },
+
+  /**
+   * Fetch repositories for a specific owner
+   */
+  async fetchRepositoriesByOwner(
+    {
+      commit,
+      state
+    }: {
+      commit: (mutation: string, payload: any) => void
+      state: any
+    },
+    owner: string = 'moneyforward'
+  ) {
+    if (!owner) return
+
+    commit('SET_LOADING_REPOS', true)
+    commit('SET_OWNER', owner)
+
+    try {
+      const repositories = await GitHubService.getRepositoriesByOwner(
+        owner,
+        state.currentPage,
+        state.perPage
+      )
+
+      if (state.currentPage === 1) {
+        commit('SET_REPOSITORIES', repositories)
+      } else {
+        commit('ADD_REPOSITORIES', repositories)
+      }
+
+      // Check if we've reached the end
+      commit('SET_HAS_MORE_REPOS', repositories.length === state.perPage)
+    } catch (error) {
+      console.error(`[DoraData] Error fetching repositories for ${owner}:`, error)
+    } finally {
+      commit('SET_LOADING_REPOS', false)
+    }
+  },
+
+  /**
+   * Load more repositories (lazy loading)
+   */
+  async loadMoreRepositories({
+    commit,
+    state,
+    dispatch
+  }: {
+    commit: (mutation: string, payload: any) => void
+    state: any
+    dispatch: (action: string, payload?: any) => Promise<any>
+  }) {
+    // Don't fetch if already loading or no more data
+    if (state.isLoadingRepos || !state.hasMoreRepos) return
+
+    // Increment page number
+    commit('SET_CURRENT_PAGE', state.currentPage + 1)
+
+    // Use the appropriate fetch method based on whether an owner is specified
+    await dispatch('fetchRepositoriesByOwner', 'moneyforward')
+  },
+
+  /**
+   * Reset repository fetching state and fetch first page
+   */
+  async resetAndFetchRepositories({
+    commit,
+    dispatch
+  }: {
+    commit: (mutation: string, payload: any) => void
+    dispatch: (action: string, payload?: any) => Promise<any>
+  }) {
+    // Reset pagination and state
+    commit('SET_CURRENT_PAGE', 1)
+    commit('SET_REPOSITORIES', [])
+    commit('SET_HAS_MORE_REPOS', true)
+
+    // Always fetch repositories from moneyforward organization
+    commit('SET_OWNER', 'moneyforward')
+    await dispatch('fetchRepositoriesByOwner', 'moneyforward')
+  },
+
   async fetchPullRequests(
     { commit }: { commit: (mutation: string, payload: any) => void },
     { owner, repo }: { owner: string; repo: string }
@@ -105,17 +215,6 @@ const actions = {
       )
     )
     commit('SET_STATUSES', statuses.flat())
-  },
-  async loadMoreRepositories({
-    commit,
-    state
-  }: {
-    commit: (mutation: string, payload: any) => void
-    state: any
-  }) {
-    commit('SET_CURRENT_PAGE', state.currentPage + 1)
-    const repositories = await GitHubService.getRepositories(state.currentPage)
-    commit('ADD_REPOSITORIES', repositories)
   }
 }
 

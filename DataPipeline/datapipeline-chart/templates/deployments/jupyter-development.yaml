@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter
+  template:
+    metadata:
+      labels:
+        app: jupyter
+    spec:
+      containers:
+      - name: jupyter
+        image: "{{ .Values.jupyter.image }}"
+        ports:
+        - containerPort: {{ .Values.jupyter.port }}
+        env:
+        - name: SPARK_HOME
+          value: "{{ .Values.jupyter.spark.home }}"
+        command: ["jupyter", "notebook", "--ip=0.0.0.0", "--allow-root", "--no-browser"]
