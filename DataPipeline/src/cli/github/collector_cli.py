@@ -3,16 +3,28 @@ GitHub Collector CLI
 """
 
 import asyncio
+import json
 import click
 from datetime import datetime
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from airflow.models import Variable
+
+# Add the src directory to the path
 from src.github_collector_v2.collector import GitHubCollector
 from src.utils.loggers import get_logger
+from src.utils.github_data_utils import (
+    load_team_members_from_csv,
+    extract_members_from_team_json,
+    find_latest_team_member_csv,
+)
+from src.utils.helper_functions import ensure_output_dir
 
 # Set up logging
 logger = get_logger("github_collector_v2.cli")
+
+OUTPUT_DIR = Variable.get("OUTPUT_DIR", "data/raw/github/")
 
 
 def get_token() -> str:
@@ -39,14 +51,14 @@ def cli():
     help="Number of repositories to process in parallel",
 )
 @click.option(
-    "--output-dir", type=click.Path(), default="data/github", help="Output directory"
+    "--output-dir", type=click.Path(), default=OUTPUT_DIR, help="Output directory"
 )
 @click.option("--use-redis/--no-redis", default=None, help="Use Redis for caching")
 @click.option("--redis-host", help="Redis host")
 @click.option("--redis-port", type=int, help="Redis port")
 @click.option("--redis-db", type=int, help="Redis database number")
 @click.option("--clear-cache", is_flag=True, help="Clear cache before collecting data")
-def collect(
+def collect_repository(
     org: str,
     limit: int,
     batch_size: int,
@@ -67,7 +79,7 @@ def collect(
 
             # Generate output filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = output_dir_path / f"github_data_{org}_{timestamp}.json"
+            output_file = output_dir_path / f"github_repository_{org}_{timestamp}.json"
 
             # Initialize collector with Redis config if specified
             kwargs = {}
@@ -398,6 +410,378 @@ def clear_cache(
             raise
 
     asyncio.run(_clear_cache())
+
+
+@cli.command()
+@click.argument("org")
+@click.option(
+    "--output-dir", type=click.Path(), default=OUTPUT_DIR, help="Output directory"
+)
+@click.option("--use-redis/--no-redis", default=None, help="Use Redis for caching")
+@click.option("--redis-host", help="Redis host")
+@click.option("--redis-port", type=int, help="Redis port")
+@click.option("--redis-db", type=int, help="Redis database number")
+@click.option("--clear-cache", is_flag=True, help="Clear cache before collecting data")
+@click.option(
+    "--include-members", is_flag=True, default=True, help="Include members in team data"
+)
+def collect_teams(
+    org: str,
+    output_dir: str,
+    use_redis: bool,
+    redis_host: str,
+    redis_port: int,
+    redis_db: int,
+    clear_cache: bool,
+    include_members: bool,
+):
+    """Collect team data for an organization"""
+
+    async def _collect_teams():
+        try:
+            # Prepare output directory
+            output_dir_path = Path(output_dir)
+            output_dir_path.mkdir(parents=True, exist_ok=True)
+
+            # Generate output filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            team_file = output_dir_path / f"github_teams_{org}_{timestamp}.json"
+
+            # Initialize collector with Redis config if specified
+            kwargs = {}
+
+            # Handle Redis configuration
+            if use_redis is not None:  # Only set if explicitly specified
+                kwargs["use_redis"] = use_redis
+            if redis_host:
+                kwargs["redis_host"] = redis_host
+            if redis_port:
+                kwargs["redis_port"] = redis_port
+            if redis_db is not None:
+                kwargs["redis_db"] = redis_db
+
+            # Create collector
+            collector = GitHubCollector.from_env(org_name=org, **kwargs)
+
+            # Show cache configuration
+            cache_enabled_type = "Redis" if collector.use_redis else "Memory"
+            logger.info("Using %s cache for data collection", cache_enabled_type)
+
+            async with collector:
+                # Clear cache if requested
+                if clear_cache:
+                    logger.info("Clearing cache before collection")
+                    collector.clear_cache(prefix="teams")
+
+                # Get cache stats before collection
+                if collector.use_redis:
+                    stats = collector.get_cache_stats()
+                    logger.info(
+                        "Redis cache status: %s", stats["redis_cache"]["connected"]
+                    )
+                    logger.info(
+                        "Redis cache entries: %d", stats["redis_cache"]["keys_count"]
+                    )
+
+                # Get organization info
+                org_data = await collector.get_organization()
+                logger.info("Organization: %s", org_data.get("name", org))
+
+                # Collect team data
+                logger.info("Collecting team data for %s...", org)
+                teams = await collector.get_teams(include_members=include_members)
+                logger.info("Found %d teams", len(teams))
+
+                # Save team data
+                team_data = {
+                    "organization": org,
+                    "collected_at": datetime.utcnow().isoformat(),
+                    "teams": teams,
+                    "metadata": {
+                        "team_count": len(teams),
+                        "include_members": include_members,
+                    },
+                }
+                collector._save_to_json(team_data, team_file)
+                logger.info("Team data saved to %s", team_file)
+
+                # Print summary
+                print("\nTeam Collection Summary:")
+                print(f"Teams: {len(teams)}")
+                print(f"Team data saved to: {team_file}")
+
+                # Get cache stats after collection
+                if collector.use_redis:
+                    stats = collector.get_cache_stats()
+                    logger.info(
+                        "Final Redis cache entries: %d",
+                        stats["redis_cache"]["keys_count"],
+                    )
+                    logger.info(
+                        "Memory cache entries: %d", stats["memory_cache"]["entries"]
+                    )
+
+        except Exception as e:
+            logger.error("Error during team collection: %s", str(e))
+            raise
+
+    asyncio.run(_collect_teams())
+
+
+@cli.command()
+@click.argument("org")
+@click.option(
+    "--output-dir", type=click.Path(), default=OUTPUT_DIR, help="Output directory"
+)
+@click.option("--use-redis/--no-redis", default=None, help="Use Redis for caching")
+@click.option("--redis-host", help="Redis host")
+@click.option("--redis-port", type=int, help="Redis port")
+@click.option("--redis-db", type=int, help="Redis database number")
+@click.option("--clear-cache", is_flag=True, help="Clear cache before collecting data")
+@click.option(
+    "--team-file",
+    type=click.Path(),
+    help="Path to team.json file containing team data with member logins",
+)
+@click.option(
+    "--team-csv",
+    type=click.Path(),
+    help="Path to CSV file containing team member logins",
+)
+@click.option(
+    "--batch-size",
+    type=int,
+    default=10,
+    help="Number of members to process in parallel",
+)
+def collect_members_contributions(
+    org: str,
+    output_dir: str,
+    use_redis: bool,
+    redis_host: str,
+    redis_port: int,
+    redis_db: int,
+    clear_cache: bool,
+    team_file: str,
+    team_csv: str,
+    batch_size: int,
+):
+    """Collect member data for an organization"""
+
+    async def _collect_members():
+        try:
+            # Prepare output directory
+            output_dir_path = ensure_output_dir(output_dir)
+
+            # Generate output filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            member_contributions_file = (
+                output_dir_path / f"github_members_contributions_{org}_{timestamp}.json"
+            )
+
+            # Initialize collector with Redis config if specified
+            kwargs = {}
+
+            # Handle Redis configuration
+            if use_redis is not None:  # Only set if explicitly specified
+                kwargs["use_redis"] = use_redis
+            if redis_host:
+                kwargs["redis_host"] = redis_host
+            if redis_port:
+                kwargs["redis_port"] = redis_port
+            if redis_db is not None:
+                kwargs["redis_db"] = redis_db
+
+            # Create collector
+            collector = GitHubCollector.from_env(org_name=org, **kwargs)
+
+            # Show cache configuration
+            cache_enabled_type = "Redis" if collector.use_redis else "Memory"
+            logger.info("Using %s cache for data collection", cache_enabled_type)
+
+            async with collector:
+                # Clear cache if requested
+                if clear_cache:
+                    logger.info("Clearing members cache before collection")
+                    collector.clear_cache(prefix="user_contrib")
+
+                # Determine how to get members
+                members = []
+
+                # Option 1: Extract from team file
+                if team_file:
+                    logger.info(f"Extracting members from team file: {team_file}")
+                    members = extract_members_from_team_json(team_file)
+
+                # Option 2: Extract from CSV file
+                elif team_csv:
+                    logger.info(f"Loading members from CSV file: {team_csv}")
+                    # Check if the file exists
+                    if not Path(team_csv).exists():
+                        raise FileNotFoundError(f"CSV file does not exist: {team_csv}")
+                    members = load_team_members_from_csv(team_csv)
+
+                # Option 3: Try to find latest team CSV if available
+                elif not members:
+                    # Try to find latest team members CSV file
+                    latest_csv = find_latest_team_member_csv(output_dir, org)
+                    if latest_csv:
+                        logger.info(f"Found latest team members CSV: {latest_csv}")
+                        members = load_team_members_from_csv(latest_csv)
+
+                # Option 4: Get all organization members via API
+                if not members:
+                    raise ValueError("No members found")
+
+                # Log the members we found
+                logger.info(f"Collecting data for {len(members)} members")
+
+                # Collect member data with contributions if detailed_info is True
+                logger.info(
+                    "Collecting detailed member information and contributions..."
+                )
+                data = await collector.collect_user_contributions(
+                    members, batch_size=batch_size, detailed_info=True
+                )
+
+                # Save data
+                with open(member_contributions_file, "w") as f:
+                    json.dump(
+                        {
+                            "organization": org,
+                            "collected_at": datetime.utcnow().isoformat(),
+                            "members_contributions": data,
+                            "metadata": {
+                                "member_count": len(data),
+                            },
+                        },
+                        f,
+                        indent=2,
+                    )
+
+                logger.info(
+                    "Member contributions data saved to: %s", member_contributions_file
+                )
+                print(
+                    f"\nMember contributions data saved to: {member_contributions_file}"
+                )
+
+        except Exception as e:
+            logger.error("Error collecting member data: %s", str(e))
+            raise
+
+    asyncio.run(_collect_members())
+
+
+@cli.command()
+@click.argument("org")
+@click.option(
+    "--output-dir", type=click.Path(), default=OUTPUT_DIR, help="Output directory"
+)
+@click.option("--use-redis/--no-redis", default=None, help="Use Redis for caching")
+@click.option("--redis-host", help="Redis host")
+@click.option("--redis-port", type=int, help="Redis port")
+@click.option("--redis-db", type=int, help="Redis database number")
+@click.option("--clear-cache", is_flag=True, help="Clear cache before collecting data")
+@click.option(
+    "--detailed-info",
+    is_flag=True,
+    default=True,
+    help="Include detailed member information",
+)
+@click.option(
+    "--batch-size",
+    type=int,
+    default=10,
+    help="Number of members to process in parallel",
+)
+def collect_members(
+    org: str,
+    output_dir: str,
+    use_redis: bool,
+    redis_host: str,
+    redis_port: int,
+    redis_db: int,
+    clear_cache: bool,
+    detailed_info: bool,
+    batch_size: int,
+):
+    """Collect member data for an organization"""
+
+    async def _collect_members():
+        try:
+            # Prepare output directory
+            output_dir_path = ensure_output_dir(output_dir)
+
+            # Generate output filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            member_file = output_dir_path / f"github_members_{org}_{timestamp}.json"
+
+            # Initialize collector with Redis config if specified
+            kwargs = {}
+
+            # Handle Redis configuration
+            if use_redis is not None:  # Only set if explicitly specified
+                kwargs["use_redis"] = use_redis
+            if redis_host:
+                kwargs["redis_host"] = redis_host
+            if redis_port:
+                kwargs["redis_port"] = redis_port
+            if redis_db is not None:
+                kwargs["redis_db"] = redis_db
+
+            # Create collector
+            collector = GitHubCollector.from_env(org_name=org, **kwargs)
+
+            # Show cache configuration
+            cache_enabled_type = "Redis" if collector.use_redis else "Memory"
+            logger.info("Using %s cache for data collection", cache_enabled_type)
+
+            async with collector:
+                # Clear cache if requested
+                if clear_cache:
+                    logger.info("Clearing members cache before collection")
+                    collector.clear_cache(prefix="user_contrib")
+                logger.info(
+                    "Collecting member data for %s... with detailed info: %s",
+                    org,
+                    detailed_info,
+                )
+                # Get all organization members via API
+                data = await collector.get_organization_members(
+                    include_detailed_info=detailed_info, batch_size=batch_size
+                )
+                logger.info(f"Found {len(data)} organization members")
+
+                # Log the members we found
+                logger.info(f"Collecting data for {len(data)} members")
+
+                # Save data
+                with open(member_file, "w") as f:
+                    json.dump(
+                        {
+                            "organization": org,
+                            "collected_at": datetime.utcnow().isoformat(),
+                            "members": data,
+                            "metadata": {
+                                "member_count": len(data),
+                                "include_detailed_info": detailed_info,
+                            },
+                        },
+                        f,
+                        indent=2,
+                    )
+
+                logger.info("Member data saved to: %s", member_file)
+                print(
+                    f"\nMember Collection Summary:\nMembers: {len(data)}\nDetailed info: {detailed_info}\nSaved to: {member_file}"
+                )
+
+        except Exception as e:
+            logger.error("Error collecting member data: %s", str(e))
+            raise
+
+    asyncio.run(_collect_members())
 
 
 def main():

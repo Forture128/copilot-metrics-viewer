@@ -1,1 +1,8 @@
 .aider*
+
+# Ignore all data
+data/*
+
+# Ignore all logs
+logs/*
+

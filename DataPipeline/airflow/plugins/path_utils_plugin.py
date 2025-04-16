@@ -1,10 +1,14 @@
 """
-Path utilities for Airflow DAGs
+Path utilities plugin for Airflow
 """
 
+from airflow.plugins_manager import AirflowPlugin
 from datetime import datetime
 from pathlib import Path
 from typing import Tuple
+from src.utils.loggers import get_logger
+
+logger = get_logger("github_collector_v2.dag")
 
 
 def get_date_based_paths(
@@ -49,9 +53,10 @@ def update_symlink(current_file: Path, latest_file: Path) -> None:
         current_file: Path to the current file
         latest_file: Path to the symlink file to update
     """
-    if latest_file.exists():
-        latest_file.unlink()
+    latest_file.unlink()
+    logger.info("Removing existing symlink: %s", latest_file)
     latest_file.symlink_to(current_file)
+    logger.info("Creating symlink: %s -> %s", latest_file, current_file)
 
 
 def get_data_file_paths(
@@ -87,8 +92,14 @@ def get_data_file_paths(
     )
 
     # Generate filenames
-    date_str = date.strftime("%Y%m%d")
+    date_str = date.strftime("%Y%m%d%H%M%S")
     filename = f"github_{data_type}_{org}_{date_str}.json"
     latest_filename = f"github_{data_type}_{org}_latest.json"
 
     return date_path / filename, latest_dir / latest_filename
+
+
+# Register the plugin
+class PathUtilsPlugin(AirflowPlugin):
+    name = "path_utils_plugin"
+    macros = [get_date_based_paths, update_symlink, get_data_file_paths]

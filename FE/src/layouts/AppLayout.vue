@@ -25,7 +25,7 @@
             </svg>
           </span>
         </button>
-        <h1 class="app-title">Copilot Metrics Viewer | {{ currentPage }}</h1>
+        <h1 class="app-title">Horus | {{ currentPage }}</h1>
       </div>
       <div class="header-right">
         <div class="user-info">

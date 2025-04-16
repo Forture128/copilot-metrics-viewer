@@ -35,3 +35,20 @@ DataPipeline/data/mock/*
 .env.*
 !.env.example
 !.env.test.example
+
+# Ignore all pycache
+*/__pycache__/*
+
+# Ignore all pyc
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+
+# Ignore all data
+data/*
+
+# Ignore all logs
+logs/*

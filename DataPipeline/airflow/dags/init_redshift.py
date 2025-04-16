@@ -2,7 +2,6 @@ import os
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.redshift_data import RedshiftDataOperator
-from airflow.hooks.base import BaseHook
 from src.utils.loggers import get_info_logger, get_error_logger  # type: ignore
 
 # Initialize loggers

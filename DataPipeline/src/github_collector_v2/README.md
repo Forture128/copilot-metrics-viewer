@@ -47,7 +47,7 @@ The workflow is split into two main steps:
 
 #### CLI Commands
 
-##### Collect data for an organization
+##### Collect repository data for an organization
 
 ```bash
 python -m src.github_collector_v2.cli collect <org_name> [OPTIONS]
@@ -63,6 +63,59 @@ Options:
 - `--redis-port INTEGER`: Redis port
 - `--redis-db INTEGER`: Redis database number
 - `--clear-cache`: Clear cache before collecting data
+
+##### Collect team data for an organization
+
+```bash
+python -m src.github_collector_v2.cli collect-teams <org_name> [OPTIONS]
+```
+
+Options:
+
+- `--output-dir PATH`: Output directory
+- `--use-redis/--no-redis`: Enable/disable Redis caching
+- `--redis-host TEXT`: Redis host
+- `--redis-port INTEGER`: Redis port
+- `--redis-db INTEGER`: Redis database number
+- `--clear-cache`: Clear cache before collecting data
+- `--include-members`: Include members in team data (default: True)
+
+##### Collect member data for an organization
+
+```bash
+python -m src.github_collector_v2.cli collect-members <org_name> [OPTIONS]
+```
+
+Options:
+
+- `--output-dir PATH`: Output directory
+- `--use-redis/--no-redis`: Enable/disable Redis caching
+- `--redis-host TEXT`: Redis host
+- `--redis-port INTEGER`: Redis port
+- `--redis-db INTEGER`: Redis database number
+- `--clear-cache`: Clear cache before collecting data
+- `--detailed-info`: Include detailed member information (default: True)
+- `--batch-size INTEGER`: Number of members to process in parallel (default: 10)
+
+##### Collect member contributions for specific members
+
+```bash
+python -m src.github_collector_v2.cli collect-members-contributions <org_name> [OPTIONS]
+```
+
+Options:
+
+- `--output-dir PATH`: Output directory
+- `--use-redis/--no-redis`: Enable/disable Redis caching
+- `--redis-host TEXT`: Redis host
+- `--redis-port INTEGER`: Redis port
+- `--redis-db INTEGER`: Redis database number
+- `--clear-cache`: Clear cache before collecting data
+- `--team-file PATH`: Path to team JSON file to extract members from
+- `--team-csv PATH`: Path to team members CSV file to extract logins from
+- `--batch-size INTEGER`: Number of members to process in parallel (default: 10)
+
+This command is useful for collecting contributions data for a specific subset of members, rather than all organization members. It can extract member logins from either a team JSON file or a CSV file.
 
 ##### Test data collection for a single repository
 
@@ -135,7 +188,7 @@ Options:
 
 ### Programmatic Usage
 
-#### Data Collection
+#### Repository Data Collection
 
 ```python
 import asyncio
@@ -154,7 +207,8 @@ async def main():
         redis_port=6379,
         redis_db=0,
         cache_ttl=3600,
-        rate_limit_buffer=100
+        rate_limit_buffer=100,
+        rate_limit_check_interval=60  # Check rate limit every 60 seconds
     )
 
     async with collector:
@@ -175,6 +229,73 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
+
+#### Team and Member Data Collection
+
+```python
+import asyncio
+from src.github_collector_v2.collector import GitHubCollector
+import json
+
+async def collect_team_and_member_data():
+    # Create collector from environment variables
+    collector = GitHubCollector.from_env(org_name="github")
+
+    async with collector:
+        # Collect team data
+        teams = await collector.get_teams(include_members=True)
+        print(f"Found {len(teams)} teams")
+
+        # Save team data
+        with open("data/github_teams.json", "w") as f:
+            json.dump({
+                "organization": "github",
+                "collected_at": datetime.utcnow().isoformat(),
+                "teams": teams,
+                "metadata": {
+                    "team_count": len(teams),
+                    "include_members": True
+                }
+            }, f, indent=2)
+
+        # Collect member data
+        members = await collector.get_organization_members(include_detailed_info=True)
+        print(f"Found {len(members)} members")
+
+        # Save member data
+        with open("data/github_members.json", "w") as f:
+            json.dump({
+                "organization": "github",
+                "collected_at": datetime.utcnow().isoformat(),
+                "members": members,
+                "metadata": {
+                    "member_count": len(members),
+                    "include_detailed_info": True
+                }
+            }, f, indent=2)
+
+        # Collect contributions for specific members
+        member_logins = ["user1", "user2", "user3"]
+        member_contributions = await collector.collect_user_contributions(
+            member_logins,
+            batch_size=10
+        )
+        print(f"Collected contributions for {len(member_contributions)} members")
+
+        # Save member contributions
+        with open("data/github_member_contributions.json", "w") as f:
+            json.dump({
+                "organization": "github",
+                "collected_at": datetime.utcnow().isoformat(),
+                "members_contributions": member_contributions,
+                "metadata": {
+                    "member_count": len(member_contributions)
+                }
+            }, f, indent=2)
+
+if __name__ == "__main__":
+    asyncio.run(collect_team_and_member_data())
 ```
 
 #### Metrics Calculation
@@ -228,6 +349,20 @@ When Redis is enabled, the cache lookup works as follows:
 4. If not found anywhere, fetch from GitHub API
 5. Store result in both Redis and memory cache
 
+## Rate Limit Management
+
+The collector manages GitHub API rate limits intelligently:
+
+1. **Periodic Checking**: Checks rate limits every N batches or after a configurable time interval
+2. **Adaptive Frequency**: Increases check frequency when close to the limit
+3. **Smart Waiting**: Implements a progressive wait strategy for long waits with periodic updates
+4. **Resource Efficient**: Avoids unnecessary API calls to check rate limits
+
+Configuration options:
+
+- `rate_limit_buffer`: Number of remaining calls to keep in reserve (default: 100)
+- `rate_limit_check_interval`: Minimum seconds between rate limit checks (default: 60)
+
 ## Data Collection
 
 The collector fetches the following data from GitHub:
@@ -240,6 +375,14 @@ The collector fetches the following data from GitHub:
    - Deployments
    - Releases
    - Commit history
+4. **Team structure**:
+   - Team hierarchy
+   - Team members
+   - Team repository assignments
+5. **Member data**:
+   - Basic profile information
+   - Contribution statistics
+   - Repository-specific contributions
 
 ## DORA Metrics
 
@@ -248,7 +391,7 @@ The metrics calculator calculates the following DORA (DevOps Research and Assess
 1. **Deployment Frequency**: How often code is deployed to production
 2. **Lead Time for Changes**: Time from code commit to deployment
 3. **Change Failure Rate**: Percentage of deployments that cause a failure
-4. **Time to Restore Service**: Time to recover from an incident
+4. **Mean Time to Recovery**: Time to recover from a failure
 
 ## License
 

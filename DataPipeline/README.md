@@ -102,6 +102,18 @@ $ echo 'export PIPENV_VENV_IN_PROJECT=1' >> ~/.zshrc
 $ source ~/.zshrc
 ```
 
+## Run docker compose
+
+```bash
+docker compose up -d
+```
+
+## Generate AIRFLOW**CORE**FERNET_KEY and AIRFLOW**WEBSERVER**SECRET_KEY
+
+```bash
+python -c 'from airflow.security import generate_fernet_key; print(generate_fernet_key())'
+```
+
 ## Setting up Kubernetes Locally with Helm and Minikube
 
 1. Install Minikube: Follow the instructions here to install Minikube for your OS.
@@ -120,7 +132,7 @@ brew install helm # for Mac
 ```
 
 4. Create Helm Charts: Create Helm charts for the services you want to deploy.
-   You can create your Helm chart for your application (e.g., Jupyter, Kafka, Localstack, etc.). Here’s a basic structure:
+   You can create your Helm chart for your application (e.g., Jupyter, Kafka, Localstack, etc.). Here's a basic structure:
 
 ```bash
 helm create data-pipeline
@@ -202,3 +214,40 @@ docker network connect docker_spark-network data-pipeline-airflow
 ```bash
 docker network connect docker_spark-network data-pipeline-spark-master
 ```
+
+## Security Configuration
+
+### Generating Airflow Security Keys
+
+Airflow requires two important security keys for proper operation:
+
+1. **Fernet Key** (AIRFLOW**CORE**FERNET_KEY)
+
+   - Used for encrypting sensitive data in the database
+   - Generate using:
+
+   ```bash
+   python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+   ```
+
+2. **Webserver Secret Key** (AIRFLOW**WEBSERVER**SECRET_KEY)
+   - Used for securing the web interface
+   - Generate using:
+   ```bash
+   python -c 'import secrets; print(secrets.token_hex(32))'
+   ```
+
+After generating these keys, add them to your `.env` file:
+
+```bash
+AIRFLOW__CORE__FERNET_KEY=your_generated_fernet_key
+AIRFLOW__WEBSERVER__SECRET_KEY=your_generated_secret_key
+```
+
+**Important Notes:**
+
+- Keep these keys secure and never commit them to version control
+- Use the same keys across all Airflow instances in your environment
+- If you lose these keys, you won't be able to decrypt existing data
+- The Fernet key must be 32 bytes and base64-encoded
+- The secret key should be a random string of sufficient length

@@ -22,11 +22,11 @@ logger = logging.getLogger("github_collector_v2.base_collector")
 T = TypeVar("T")
 
 # Constants
-DEFAULT_CACHE_TTL = 3600  # 1 hour
+DEFAULT_CACHE_TTL = 3600
 DEFAULT_RATE_LIMIT_BUFFER = 100
 DEFAULT_RETRY_COUNT = 3
 DEFAULT_RETRY_BACKOFF = 2.0
-DEFAULT_MAX_BATCH_SIZE = 5
+DEFAULT_MAX_BATCH_SIZE = 10
 
 
 class GraphQLError(Exception):
@@ -75,12 +75,12 @@ class BaseGitHubCollector:
         cache_ttl: int = DEFAULT_CACHE_TTL,
         rate_limit_buffer: int = DEFAULT_RATE_LIMIT_BUFFER,
         cache_dir: Optional[Path] = None,
-        log_dir: Optional[Path] = None,
         max_retries: int = DEFAULT_RETRY_COUNT,
         use_redis: bool = False,
         redis_host: str = "localhost",
         redis_port: int = 6379,
         redis_db: int = 0,
+        rate_limit_check_interval: int = 60,  # Default check interval in seconds
     ):
         """
         Initialize the GitHub collector
@@ -91,12 +91,12 @@ class BaseGitHubCollector:
             cache_ttl: Time-to-live for cache entries in seconds
             rate_limit_buffer: Number of requests to keep in reserve before waiting
             cache_dir: Directory to store disk cache files
-            log_dir: Directory to store logs
             max_retries: Maximum number of retries for failed requests
             use_redis: Whether to use Redis for caching
             redis_host: Redis host
             redis_port: Redis port
             redis_db: Redis database number
+            rate_limit_check_interval: Minimum interval between rate limit checks in seconds
         """
         self.token = token
         self.org_name = org_name
@@ -105,6 +105,7 @@ class BaseGitHubCollector:
         self.cache_ttl = cache_ttl
         self.rate_limit_buffer = rate_limit_buffer
         self.max_retries = max_retries
+        self.rate_limit_check_interval = rate_limit_check_interval
 
         # Cache configurations
         self.cache_dir = cache_dir or Path("data/github_cache")
@@ -114,6 +115,9 @@ class BaseGitHubCollector:
         self._memory_cache: Dict[str, CacheEntry[Any]] = {}
         self._rate_limit_info: Optional[Dict[str, Any]] = None
         self._org_cache: Optional[Dict[str, Any]] = None
+
+        # Rate limit check tracking
+        self._last_rate_limit_check: Optional[datetime] = None
 
         # Session state
         self._session: Optional[aiohttp.ClientSession] = None
@@ -270,20 +274,43 @@ class BaseGitHubCollector:
 
     async def _should_wait_for_rate_limit(self) -> bool:
         """Check if we should wait for rate limit to reset"""
+        current_time = datetime.now()
+
+        # Check if we have up-to-date rate limit info
         if self._rate_limit_info is None:
             # If we don't have rate limit info, get it
             if not self._checking_rate_limit:
                 await self.check_rate_limit()
+        elif self._last_rate_limit_check:
+            # If it's been a while since our last check, refresh
+            elapsed = (current_time - self._last_rate_limit_check).total_seconds()
+            if elapsed > self.rate_limit_check_interval:
+                if not self._checking_rate_limit:
+                    await self.check_rate_limit()
 
+        # Now check if we need to wait
         if self._rate_limit_info:
-            remaining = self._rate_limit_info.get("remaining", 1000)
+            remaining = int(self._rate_limit_info.get("remaining", 1000))
             if remaining <= self.rate_limit_buffer:
+                logger.warning(
+                    f"Rate limit check: only {remaining} requests remaining (buffer: {self.rate_limit_buffer})"
+                )
                 return True
+
+            # Log if we're getting close to the buffer
+            elif remaining <= (self.rate_limit_buffer * 2):
+                logger.info(
+                    f"Rate limit status: {remaining} requests remaining (buffer: {self.rate_limit_buffer})"
+                )
 
         return False
 
     async def _wait_for_rate_limit_reset(self) -> None:
-        """Wait until rate limit resets"""
+        """Wait until rate limit resets with periodic updates"""
+        if not self._rate_limit_info:
+            # If we don't have rate limit info, get it first
+            await self.check_rate_limit(force=True)
+
         if self._rate_limit_info:
             reset_at = datetime.fromisoformat(
                 self._rate_limit_info.get("resetAt", "").replace("Z", "+00:00")
@@ -291,15 +318,51 @@ class BaseGitHubCollector:
             now = datetime.now(reset_at.tzinfo)
 
             if reset_at > now:
-                wait_seconds = (
+                total_wait_seconds = (
                     reset_at - now
                 ).total_seconds() + 5  # Add 5 seconds buffer
-                logger.warning(
-                    f"Rate limit nearly reached. Waiting {wait_seconds:.2f} seconds until reset."
-                )
-                await asyncio.sleep(wait_seconds)
-                # Refresh rate limit info after waiting
-                await self.check_rate_limit()
+
+                # If wait time is significant, use a progressive wait strategy
+                if total_wait_seconds > 300:  # 5 minutes
+                    logger.warning(
+                        f"Rate limit reached. Long wait required: {total_wait_seconds:.2f} seconds "
+                        f"({total_wait_seconds / 60:.1f} minutes) until reset at {reset_at.isoformat()}."
+                    )
+
+                    # Wait in smaller chunks and provide updates
+                    remaining_seconds = total_wait_seconds
+                    while remaining_seconds > 0:
+                        # Wait at most 60 seconds at a time
+                        wait_chunk = min(60, remaining_seconds)
+                        logger.info(
+                            f"Waiting for rate limit reset: {remaining_seconds:.0f} seconds remaining"
+                        )
+                        await asyncio.sleep(wait_chunk)
+                        remaining_seconds -= wait_chunk
+
+                        # Check if rate limit has been refreshed
+                        if (
+                            wait_chunk == 60
+                        ):  # Only check every minute to avoid extra API calls
+                            await self.check_rate_limit(force=True)
+                            # If we have remaining capacity, we can exit early
+                            if (
+                                int(self._rate_limit_info.get("remaining", 0))
+                                > self.rate_limit_buffer
+                            ):
+                                logger.info(
+                                    "Rate limit refreshed earlier than expected, resuming operations"
+                                )
+                                break
+                else:
+                    # For shorter waits, just sleep once
+                    logger.warning(
+                        f"Rate limit nearly reached. Waiting {total_wait_seconds:.2f} seconds until reset."
+                    )
+                    await asyncio.sleep(total_wait_seconds)
+
+                # Final refresh of rate limit info after waiting
+                await self.check_rate_limit(force=True)
 
     async def execute_graphql(
         self,
@@ -487,9 +550,12 @@ class BaseGitHubCollector:
 
         return org_data
 
-    async def check_rate_limit(self) -> Dict[str, Any]:
+    async def check_rate_limit(self, force: bool = False) -> Dict[str, Any]:
         """
         Check current rate limit status
+
+        Args:
+            force: Force refresh the rate limit info regardless of last check time
 
         Returns:
             Rate limit information
@@ -502,6 +568,16 @@ class BaseGitHubCollector:
                 "remaining": 5000,
                 "resetAt": "",
             }
+
+        # Check if we've checked recently and can use the cached rate limit info
+        current_time = datetime.now()
+        if not force and self._last_rate_limit_check and self._rate_limit_info:
+            elapsed = (current_time - self._last_rate_limit_check).total_seconds()
+            if elapsed < self.rate_limit_check_interval:
+                logger.debug(
+                    f"Using cached rate limit info (last checked {elapsed:.1f}s ago)"
+                )
+                return self._rate_limit_info
 
         logger.debug("Checking rate limit status")
 
@@ -520,6 +596,7 @@ class BaseGitHubCollector:
             result = await self.execute_graphql(query, use_cache=False)
             rate_limit = result.get("rateLimit", {})
             self._rate_limit_info = rate_limit
+            self._last_rate_limit_check = current_time
 
             logger.info(
                 f"Rate limit status - Remaining: {rate_limit.get('remaining')}/{rate_limit.get('limit')}, "
@@ -547,9 +624,14 @@ class BaseGitHubCollector:
             List of processed results
         """
         results = []
+        # Track if we're close to rate limit to check more frequently
+        close_to_limit = False
+        # Track batch index for periodic rate limit checks
+        batch_idx = 0
 
         for i in range(0, len(items), batch_size):
             batch = items[i : i + batch_size]
+            batch_idx += 1
             logger.info(
                 f"Processing batch {i // batch_size + 1} of {(len(items) + batch_size - 1) // batch_size}"
             )
@@ -561,10 +643,25 @@ class BaseGitHubCollector:
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
             results.extend(batch_results)
 
-            # Check for rate limit after each batch
-            rate_limit = await self.check_rate_limit()
-            if int(rate_limit.get("remaining", 1000)) <= self.rate_limit_buffer:
-                await self._wait_for_rate_limit_reset()
+            # Check rate limit periodically (every 10 batches) or if we were close to the limit
+            if batch_idx % 10 == 0 or close_to_limit:
+                rate_limit = await self.check_rate_limit()
+                remaining = int(rate_limit.get("remaining", 1000))
+
+                # If we're close to the limit, wait for reset and check more frequently
+                if remaining <= self.rate_limit_buffer:
+                    await self._wait_for_rate_limit_reset()
+                    close_to_limit = True
+                else:
+                    # Reset the flag if we're no longer close to the limit
+                    # Only check every 10 batches if we have plenty of remaining calls
+                    close_to_limit = remaining <= (self.rate_limit_buffer * 2)
+
+                # Log the current rate limit status
+                logger.info(
+                    f"Rate limit status - Remaining: {remaining} - "
+                    f"{'Checking every batch due to low limit' if close_to_limit else 'Checking every 10 batches'}"
+                )
 
         return results
 

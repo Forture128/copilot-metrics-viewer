@@ -9,7 +9,7 @@ services:
     environment:
       - SERVICES=s3,redshift,lambda,kinesis
       - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
+      - DATA_DIR=/tmp/localstack_data
       - DOCKER_HOST=unix:///var/run/docker.sock
       - LAMBDA_EXECUTOR=docker
       - DISABLE_CORS_CHECKS=1
@@ -19,10 +19,11 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
+      - INIT_SCRIPTS_PATH=/docker-entrypoint-initaws.d
     volumes:
-      - ./data-pipeline-localstack:/tmp/data-pipeline-localstack
+      - "./data-pipeline-localstack:/tmp/localstack_data"
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - ../localstack.sh:/docker-entrypoint-initaws.d/localstack.sh
+      - "../localstack.sh:/docker-entrypoint-initaws.d/localstack.sh"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 30s
@@ -106,8 +107,8 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__FERNET_KEY= # TODO: Generate a new key
-      - AIRFLOW__WEBSERVER__SECRET_KEY= # TODO: Generate a new key
+      - AIRFLOW__CORE__FERNET_KEY=9UunW9lUEzgQznW0acy4h-bQxQe_mFqjhLGekuwKtaw=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=8a2cc4651e3923182f32d3583ab2523c763a57b55ed83472495145dad4616672
       - AIRFLOW__KUBERNETES_EXECUTOR__IN_CLUSTER=False
       - AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE=default
       - AIRFLOW__WEBSERVER__WORKERS=1
@@ -115,9 +116,6 @@ services:
       - AIRFLOW__WEBSERVER__WORKER_TIMEOUT=300
       - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
       - SCOPE_TYPE=organization
-      - GITHUB_ORG_NAME=your_organization_name
-      - GITHUB_ENT_NAME=
-      - TOKEN=your_github_token
       - AIRFLOW_CONN_AWS_DEFAULT=aws://test:test@data-pipeline-localstack:4566
       # - AIRFLOW_CONN_SPARK_DEFAULT=spark://spark://data-pipeline-spark-master:7077
     volumes:
@@ -139,7 +137,7 @@ services:
     command: >
       bash -c "
       airflow db init &&
-      airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@example.com --password admin --skip-if-exists &&
+      airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@example.com --password admin &&
       airflow scheduler & airflow webserver --port 8080"
 
   kafka:
@@ -180,6 +178,22 @@ services:
       - default
       - spark-network
 
+  timescaledb:
+    image: timescale/timescaledb:2.12.1-pg13
+    container_name: data-pipeline-timescaledb
+    environment:
+      - POSTGRES_DB=metrics
+      - POSTGRES_USER=metrics
+      - POSTGRES_PASSWORD=metrics
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "metrics"]
+      interval: 5s
+      retries: 5
+
 networks:
   default:
     driver: bridge
@@ -191,4 +205,6 @@ volumes:
   postgres_data:
     driver: local
   spark_events:
+    driver: local
+  timescale_data:
     driver: local

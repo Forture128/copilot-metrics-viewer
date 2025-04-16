@@ -17,7 +17,7 @@ class GitHubCollector(BaseGitHubCollector):
     """Main GitHub collector for DORA metrics and repository data"""
 
     async def get_repositories(
-        self, repo_type: str = "all", limit: Optional[int] = None, batch_size: int = 100
+        self, repo_type: str = "all", limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Get all repositories with pagination
@@ -25,7 +25,6 @@ class GitHubCollector(BaseGitHubCollector):
         Args:
             repo_type: Type of repositories to fetch (all, public, private, etc.)
             limit: Maximum number of repositories to return
-            batch_size: Number of repositories per page
 
         Returns:
             List of repository data dictionaries
@@ -118,9 +117,6 @@ class GitHubCollector(BaseGitHubCollector):
                     variables["pageSize"] = page_size
 
                 cursor = page_info["endCursor"]
-
-                # Check rate limit after each page
-                await self.check_rate_limit()
 
             # Cache the results
             if repos:
@@ -477,7 +473,7 @@ class GitHubCollector(BaseGitHubCollector):
             return cached_data
 
         query = """
-            query($org: String!, $cursor: String) {
+            query($org: String!, $cursor: String, $includeMembers: Boolean!) {
                 organization(login: $org) {
                     teams(first: 100, after: $cursor) {
                         pageInfo {
@@ -504,7 +500,6 @@ class GitHubCollector(BaseGitHubCollector):
                                 nodes {
                                     login
                                     name
-                                    email
                                     company
                                     createdAt
                                     updatedAt
@@ -555,12 +550,14 @@ class GitHubCollector(BaseGitHubCollector):
                     break
 
                 cursor = page_info["endCursor"]
-                await self.check_rate_limit()
 
             # Cache the results
             if teams:
                 self._set_cache(cache_key, teams)
 
+            # Last check remaining rate limit
+            rate_limit = await self.check_rate_limit()
+            logger.info(f"Remaining rate limit: {rate_limit}")
             return teams
 
         except Exception as e:
@@ -568,13 +565,14 @@ class GitHubCollector(BaseGitHubCollector):
             raise
 
     async def get_organization_members(
-        self, include_detailed_info: bool = True
+        self, include_detailed_info: bool = True, batch_size: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Get all members of the organization with detailed contribution information
 
         Args:
             include_detailed_info: Whether to include detailed user information and contributions
+            batch_size: Number of members to process in parallel when fetching contributions
 
         Returns:
             List of member data dictionaries
@@ -596,7 +594,6 @@ class GitHubCollector(BaseGitHubCollector):
                         nodes {
                             login
                             name
-                            email
                             company
                             createdAt
                             updatedAt
@@ -604,6 +601,92 @@ class GitHubCollector(BaseGitHubCollector):
                             isHireable
                             isSiteAdmin
                             organizationVerifiedDomainEmails(login: $org)
+                        }
+                    }
+                }
+            }
+        """
+
+        members = []
+        cursor = None
+
+        try:
+            # Step 1: Fetch all members (without contributions)
+            logger.info("Fetching organization members...")
+            while True:
+                variables = {
+                    "org": self.org_name,
+                    "cursor": cursor,
+                }
+                result = await self.execute_graphql(query, variables)
+
+                if not result.get("organization", {}).get("membersWithRole"):
+                    logger.warning("Unexpected response format when fetching members")
+                    break
+
+                page_info = result["organization"]["membersWithRole"]["pageInfo"]
+                current_members = result["organization"]["membersWithRole"]["nodes"]
+                members.extend(current_members)
+
+                # Check if we need to fetch more pages
+                if not page_info["hasNextPage"]:
+                    break
+                cursor = page_info["endCursor"]
+
+            logger.info(f"Found {len(members)} organization members")
+
+            # Step 2: If detailed info is required, fetch contributions in batch
+            if include_detailed_info and members:
+                # Extract member logins
+                member_logins = [member["login"] for member in members]
+
+                # Fetch contributions in batch
+                logger.info(
+                    f"Fetching contribution data for {len(member_logins)} members with batch size {batch_size}"
+                )
+                contributions_data = await self.collect_user_contributions(
+                    member_logins, batch_size=100
+                )
+
+                # Add contribution data to member records
+                for member in members:
+                    login = member["login"]
+                    if login in contributions_data:
+                        member["contributionsCollection"] = contributions_data[login]
+                    else:
+                        # Add empty contributions if missing
+                        member["contributionsCollection"] = {}
+
+                logger.info(
+                    f"Successfully collected contributions for {len(contributions_data)} members"
+                )
+
+            # Cache the results
+            if members:
+                self._set_cache(cache_key, members)
+            # Last check remaining rate limit
+            rate_limit = await self.check_rate_limit()
+            logger.info(f"Remaining rate limit: {rate_limit}")
+            return members
+
+        except Exception as e:
+            logger.error("Failed to get organization members: %s", str(e))
+            raise
+
+    async def get_user_contributions(self, login: str):
+        """
+        Fetch contributions for a given user
+
+        Args:
+            login: GitHub login of the user
+
+        Returns:
+            Tuple of login and contributions collection
+        """
+        try:
+            query = """
+                    query($login: String!) {
+                        user(login: $login) {
                             contributionsCollection {
                                 totalCommitContributions
                                 totalIssueContributions
@@ -634,47 +717,60 @@ class GitHubCollector(BaseGitHubCollector):
                                     }
                                 }
                             }
-                        }
+                        }   
                     }
-                }
-            }
-        """
-
-        members = []
-        cursor = None
-
-        try:
-            while True:
-                variables = {
-                    "org": self.org_name,
-                    "cursor": cursor,
-                }
-                result = await self.execute_graphql(query, variables)
-
-                if not result.get("organization", {}).get("membersWithRole"):
-                    logger.warning("Unexpected response format when fetching members")
-                    break
-
-                page_info = result["organization"]["membersWithRole"]["pageInfo"]
-                current_members = result["organization"]["membersWithRole"]["nodes"]
-                members.extend(current_members)
-
-                if not page_info["hasNextPage"]:
-                    break
-
-                cursor = page_info["endCursor"]
-                await self.check_rate_limit()
-
-            # Cache the results
-            if members:
-                self._set_cache(cache_key, members)
-
-            return members
-
+            """
+            result = await self.execute_graphql(query, {"login": login})
+            return login, result.get("user", {}).get("contributionsCollection", {})
         except Exception as e:
-            logger.error("Failed to get organization members: %s", str(e))
-            raise
+            logger.error("Failed to fetch contributions for %s: %s", login, str(e))
+            return login, {"error": str(e)}
 
+    async def collect_user_contributions(
+        self, members: List[str], batch_size: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Collect contributions for a list of users in batches
+
+        Args:
+            members: List of GitHub login names
+            batch_size: Number of users to process in parallel
+
+        Returns:
+            Dictionary with collected contributions for all users, keyed by login
+        """
+        # Handle empty members list
+        if not members:
+            logger.warning("No members provided to collect_user_contributions")
+            return {}
+
+        # Use the batch_process method for efficient processing
+        async def process_member(login: str) -> Dict[str, Any]:
+            return await self.get_user_contributions(login)
+
+        logger.info(
+            "Collecting contributions for %d users with batch size %d",
+            len(members),
+            batch_size,
+        )
+        results = await self.batch_process(members, process_member, batch_size)
+
+        # Convert results to a dictionary
+        members_data = {}
+        for result in results:
+            # Check if result is a tuple (from get_user_contributions)
+            if isinstance(result, tuple) and len(result) == 2:
+                login, contrib_data = result
+                members_data[login] = contrib_data
+            # Handle the case where we got an exception or unexpected format
+            elif isinstance(result, Exception):
+                logger.error(f"Error processing member contributions: {str(result)}")
+            else:
+                logger.warning(f"Unexpected result format: {type(result)}")
+
+        return members_data
+
+    # FIXME: Remove this method
     @classmethod
     def from_env(cls, org_name: str, **kwargs) -> "GitHubCollector":
         """
@@ -695,6 +791,12 @@ class GitHubCollector(BaseGitHubCollector):
         # Get Redis configuration from environment if present
         use_redis = os.getenv("USE_REDIS", "").lower() in ("true", "1", "yes")
 
+        # Get rate limit settings from environment
+        rate_limit_buffer = int(os.getenv("GITHUB_RATE_LIMIT_BUFFER", "100"))
+        rate_limit_check_interval = int(
+            os.getenv("GITHUB_RATE_LIMIT_CHECK_INTERVAL", "60")
+        )
+
         # Default configuration
         config = {
             "token": token,
@@ -703,6 +805,8 @@ class GitHubCollector(BaseGitHubCollector):
             "redis_host": os.getenv("REDIS_HOST", "localhost"),
             "redis_port": int(os.getenv("REDIS_PORT", "6379")),
             "redis_db": int(os.getenv("REDIS_DB", "0")),
+            "rate_limit_buffer": rate_limit_buffer,
+            "rate_limit_check_interval": rate_limit_check_interval,
         }
         logger.info("Config from env: %s", config)
 

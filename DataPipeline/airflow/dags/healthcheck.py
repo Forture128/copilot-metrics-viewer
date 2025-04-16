@@ -262,7 +262,7 @@ def test_spark_execution_local():
             spark.read.format("json")
             .option("multiLine", "true")  # Handle multi-line JSON
             .option("inferSchema", "true")  # Automatically infer schema
-            .json("github_copilot_usage.json")
+            .json("test.json")
         )
 
         # Print schema and sample data
@@ -324,7 +324,7 @@ def test_spark_execution_localstack():
             spark.read.format("json")
             .option("multiLine", "true")  # Handle multi-line JSON
             .option("inferSchema", "true")  # Automatically infer schema
-            .json("s3a://test-bucket/data/2025/01/09/github_copilot_usage.json")
+            .json("s3a://test-bucket/data/2025/01/09/test.json")
         )
 
         # Print schema and sample data
